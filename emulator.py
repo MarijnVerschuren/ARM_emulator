@@ -42,7 +42,7 @@ if __name__ == "__main__":
 			choices=configs
 		))["emulation_config"]
 
-	with open(f"{EMU_DIR}/{config}", "r") as file:
+	with open(f"{EMU_DIR}/configs/{config}", "r") as file:
 		config = json.load(file)
 
 	envs = os.popen("cat platformio.ini | grep env: | sed 's/.*env://' | sed 's/]//'").read()
