@@ -33,18 +33,33 @@ def exception_hook(type, value, traceback):
 if __name__ == "__main__":
 	sys.excepthook = exception_hook
 
+	configs = os.listdir(f"{EMU_DIR}/configs")
+	if not configs: raise ValueError("no emulation config found")
+	config = configs[0] if len(configs) <= 1 else \
+		prompt(List(
+			"emulation_config",
+			message="select emulation config",
+			choices=configs
+		))["emulation_config"]
 
-	configs = os.popen("cat platformio.ini | grep env: | sed 's/.*env://' | sed 's/]//'").read()
-	if not configs: raise ValueError("no platformio config found")
-	env = prompt(List(
-		"build_config",
-		message="select build config",
-		choices=configs.split("\n")[:-1]
-	))["build_config"]
+	with open(config, "r") as file:
+		config = json.load(file)
+
+	envs = os.popen("cat platformio.ini | grep env: | sed 's/.*env://' | sed 's/]//'").read()
+	if not envs: raise ValueError("no platformio config found")
+	envs = envs.split("\n")[:-1]
+	env = envs[0] if len(envs) <= 1 else \
+		prompt(List(
+			"build_config",
+			message="select build config",
+			choices=envs
+		))["build_config"]
 
 	os.system(f"pio debug -e {env}")
 	os.system(f"cp ./.pio/build/{env}/firmware.bin {EMU_DIR}/{env}.bin")
-	os.system(f"cp ./.pio/build/{env}/firmware.elf {EMU_DIR}{env}.elf")
+	os.system(f"cp ./.pio/build/{env}/firmware.elf {EMU_DIR}/{env}.elf")
+
+	print(config, env)
 
 
 # ARM emulator should:
