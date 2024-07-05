@@ -1,6 +1,6 @@
 {
     "EMU": {
-        "memory": {
+        "mem": {
             "flash": [
                 "bank_0"
             ],
@@ -9,7 +9,7 @@
         }
     },
     "DUT": {
-        "memory": {
+        "mem": {
             "flash": {
                 "bank_0": 134217728,
                 "bank_0_size": 1048576,

@@ -130,14 +130,15 @@ if __name__ == "__main__":
 
 	# init sequence
 	init_config()
-	print(CFG)
 	env = compile_env()
 	load_binary(env)
 
 	print(CFG)
 
 	# setup memory map and code loading
-	#emu.mem_map(flash["bank_0"], flash["bank_1"] - flash["bank_0"])	# map flash bank 0
+	for bank in CFG.emu.mem.flash:
+		print("map: ", CFG.dut.mem.flash[bank], CFG.dut.mem.flash[f"{bank}_size"])
+		emu.mem_map(CFG.dut.mem.flash[bank], CFG.dut.mem.flash[f"{bank}_size"])
 	#emu.mem_map(periph["start"], periph["end"] - periph["start"])	# map peripheral space
 	# emu.mem_map(UNKNOWN, UNKNOWN_END - UNKNOWN)	# map unknown space
 	# emu.mem_map(VAR_BASE, 0x100000)		# map variable space
