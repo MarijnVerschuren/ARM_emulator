@@ -37,5 +37,16 @@ if __name__ == "__main__":
 		choices=["[NEW_CONFIG]"] + configs
 	))
 
+	docs = [doc for doc in os.listdir("./doc") if "soft" in doc]
+	if not docs: raise ValueError("no emulation config found")
+	doc = docs[0] if len(docs) == 1 else prompt(Choice(
+		"software_document",
+		message="select software document",
+		choices=docs
+	))
+
+	doc = open(f"./doc/{doc}")
+	for page in doc:
+		print(find_tables(page))
 
 	# TODO: use: find_tables
