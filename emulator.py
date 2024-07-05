@@ -136,14 +136,28 @@ if __name__ == "__main__":
 	print(CFG)
 
 	# setup memory map and code loading
-	for bank in CFG.emu.mem.flash:
-		print("map: ", CFG.dut.mem.flash[bank], CFG.dut.mem.flash[f"{bank}_size"])
-		emu.mem_map(CFG.dut.mem.flash[bank], CFG.dut.mem.flash[f"{bank}_size"])
-	#emu.mem_map(periph["start"], periph["end"] - periph["start"])	# map peripheral space
-	# emu.mem_map(UNKNOWN, UNKNOWN_END - UNKNOWN)	# map unknown space
-	# emu.mem_map(VAR_BASE, 0x100000)		# map variable space
+	for bank in CFG.emu.mem.flash:	emu.mem_map(CFG.dut.mem.flash[bank],	CFG.dut.mem.flash[f"{bank}_size"])			# memory map flash banks
+	if CFG.emu.mem.periph:			emu.mem_map(CFG.dut.mem.periph.start,	CFG.dut.mem.periph.size)					# memory map peripheral space
+	if CFG.emu.mem.var:				emu.mem_map(CFG.dut.mem.var.start,		CFG.dut.mem.var.size)						# memory map variable space
+	emu.mem_write(CFG.emu.mem.load, CFG.code)																			# load code
 
-	# TODO
+	# add hooks
+	emu.hook_add(
+		UC_HOOK_MEM_READ_UNMAPPED	|
+		UC_HOOK_MEM_WRITE_UNMAPPED	|
+		UC_HOOK_MEM_INVALID,
+		memory_invalid_hook
+	)
+	emu.hook_add(UC_HOOK_MEM_READ,		memory_read_hook)
+	emu.hook_add(UC_HOOK_MEM_WRITE,		memory_write_hook)
+	emu.hook_add(UC_HOOK_CODE,			code_hook)
+	emu.hook_add(UC_HOOK_INTR,			interrupt_hook)
+
+	emu.reg_write(UC_ARM_REG_SP, CFG.info.stack_pointer)
+
+	# start emulation
+	try:					emu.emu_start(CFG.info.entry_point, CFG.emu.mem.load + len(CFG.code))
+	except UcError as e:	print(e)
 
 # ARM emulator should:
 # 1. Read the ./doc/ files to find information on pin definitions and memory map

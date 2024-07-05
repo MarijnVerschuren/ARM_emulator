@@ -5,7 +5,8 @@
                 "bank_0"
             ],
             "var": true,
-            "periph": true
+            "periph": true,
+			"load": 134217728
         }
     },
     "DUT": {
