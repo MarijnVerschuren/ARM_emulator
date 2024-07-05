@@ -8,7 +8,7 @@ __all__ = [
 	"memory_read_hook",
 	"memory_write_hook",
 	"code_hook",
-	"interrupt_hook"
-	# emulator.py
-
+	"interrupt_hook",
+	# hardware.py
+	"init_hardware"
 ]
