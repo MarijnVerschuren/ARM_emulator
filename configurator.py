@@ -12,9 +12,11 @@ dir_name =	os.path.dirname
 abs_path =	os.path.abspath
 clear = partial(os.system, "clear")
 
+
 # constants
 EMU_DIR = abs_path(dir_name(__file__))
 CONTAINERS = [dict, list, tuple]
+
 
 # Python exception handler
 def exception_hook(type, value, traceback) -> None:
@@ -22,10 +24,10 @@ def exception_hook(type, value, traceback) -> None:
 		sys.exit(0)
 	else: sys.__excepthook__(type, value, traceback)
 
+
 # helpers
 def pad(msg: str, count: int, char: str = " ") -> str:
 	return f"{msg}{char * (count - len(msg))}"
-
 def get_keys(data: CONTAINERS, path: str = "") -> list[tuple[str, str, type]]:
 	if not isinstance(data, dict): data = {i: x for i, x in enumerate(data)}
 	keys = [(x, path, type(y)) for x, y in data.items()]
@@ -34,7 +36,6 @@ def get_keys(data: CONTAINERS, path: str = "") -> list[tuple[str, str, type]]:
 		if t not in CONTAINERS: continue
 		keys += get_keys(data[key], f"{path}/{key}")
 	return keys
-
 def iter_path(config: dict, path: str) -> CONTAINERS:
 	if not path: return config
 	for p in path.split("/")[1:]:
@@ -59,7 +60,6 @@ def safe_input(prompt: str, expect: type) -> int | float | bool | str:
 		except ValueError as e: pass
 
 
-
 # functions
 def edit_field(config: dict, field: tuple[str, str, type]) -> dict:
 	name, path, type = field
@@ -72,7 +72,6 @@ def edit_field(config: dict, field: tuple[str, str, type]) -> dict:
 	print(parent[name])
 	config[name] = safe_input("new value: ", type)
 	return config
-
 def add_field(config: dict) -> dict:
 	valid =		[("[ROOT]", None, dict)] + [(x, y, z) for x, y, z in get_keys(config) if z in CONTAINERS]
 	choices =	[f"{path}/{name}" if [x for x, _, __ in valid].count(name) > 1 else name for name, path, __ in valid]
@@ -126,7 +125,6 @@ def new_config() -> None:
 		json.dump({}, file)
 		file.close()
 	edit_config(config_name)
-
 def edit_config(config_name: str) -> None:
 	with open(f"{EMU_DIR}/configs/{config_name}", "r") as file:
 		config = json.load(file)
@@ -154,7 +152,6 @@ def edit_config(config_name: str) -> None:
 	with open(f"{EMU_DIR}/configs/{config_name}", "w") as file:
 		json.dump(config, file, indent=4)
 		file.close()
-
 
 
 if __name__ == "__main__":
