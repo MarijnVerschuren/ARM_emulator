@@ -94,7 +94,7 @@ if __name__ == "__main__":
 
 	# read and analyse binary
 	ADDRESS = config["memory"]["load"]
-	with open(f"{env}.bin", "rb") as prog:
+	with open(f"{EMU_DIR}/{env}.bin", "rb") as prog:
 		CODE = prog.read()
 		prog.close()
 
