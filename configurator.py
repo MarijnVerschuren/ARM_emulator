@@ -1,14 +1,13 @@
 # TUI includes
-from inquirer import List, Checkbox, prompt as _prompt
 from rich import print
 # helper includes
 from functools import partial
+from helpers import *
 # general includes
 import json, sys, os
 
 
-# partials, lambda's and aliases
-prompt = lambda x: _prompt([x,], raise_keyboard_interrupt=True)
+# partials, lambda's and aliase
 dir_name =	os.path.dirname
 abs_path =	os.path.abspath
 clear = partial(os.system, "clear")
@@ -41,6 +40,7 @@ def iter_path(config: dict, path: str) -> CONTAINERS:
 	for p in path.split("/")[1:]:
 		config = config[p]
 	return config
+
 
 # inputs
 def safe_input(prompt: str, expect: type) -> int | float | bool | str:
@@ -75,13 +75,13 @@ def edit_field(config: dict, field: tuple[str, str, type]) -> dict:
 
 def add_field(config: dict) -> dict:
 	valid =		[("[ROOT]", None, dict)] + [(x, y, z) for x, y, z in get_keys(config) if z in CONTAINERS]
-	choices =	[name for name, _, __ in valid]
+	choices =	[f"{path}/{name}" if [x for x, _, __ in valid].count(name) > 1 else name for name, path, __ in valid]
 	print(config)
-	parent = prompt(List(
+	parent = prompt(Choice(
 		"parent",
-		message="select field to edit",
+		message="select parent",
 		choices= ["[CANCEL]"] + choices
-	))["parent"]
+	))
 	if parent == "[CANCEL]": return config
 	parent, path, type = valid[choices.index(parent)]
 
@@ -93,17 +93,26 @@ def add_field(config: dict) -> dict:
 		add = lambda x: current.update({name: x})
 	else: add = current.append
 
-	choices =	[int, float, bool, str, dict, list, tuple]
-	formatted =	[c.__name__ for c in choices]
-	type = prompt(List(
+	type = prompt(Choice(
 		"type",
 		message="select field type",
-		choices=formatted
-	))["type"]
-	type = choices[formatted.index(type)]
+		choices= ["size"],
+		format_choices=[int, float, bool, str, dict, list, tuple],
+		format=lambda x: x.__name__
+	))
 
-	if type in CONTAINERS:	data = type()
-	else:					data = safe_input("field data: ", type)
+	if type in CONTAINERS: data = type()
+	if type == "size":
+		field = prompt(Choice(
+			"field",
+			message="select field as base",
+			format_choices=[(x, y, z) for x, y, z in get_keys(config) if z not in CONTAINERS and y == f"{path}/{parent}"],
+			format=lambda x: f"{pad(f'{x[1][x[1].rfind(chr(0x2F)) + 1:]}[{x[0]}]:', 20)} {x[2].__name__}"
+		))
+		base, path, type = field
+		if type != int: raise ValueError("base value must be int!")
+		data = safe_input("field data: ", int) - iter_path(config, path)[base]
+	else: data = safe_input("field data: ", type)
 
 	add(data)
 
@@ -125,22 +134,22 @@ def edit_config(config_name: str) -> None:
 
 	while True:
 		clear()
-		valid = [(x, y, z) for x, y, z in get_keys(config) if z not in CONTAINERS]
-		fields = [f"{pad(f'{y[y.rfind(chr(0x2F)) + 1:]}[{x}]:', 20)} {z.__name__}" for x, y, z in valid]
-		field = prompt(List(
+		field = prompt(Choice(
 			"field",
 			message="select field to edit",
 			choices=[
 				"[SAVE]",
-				"[NEW_FIELD]",
-				*fields
-			]
-		))["field"]
+				"[NEW_FIELD]"
+			],
+			format_choices=[(x, y, z) for x, y, z in get_keys(config) if z not in CONTAINERS],
+			format=lambda x: f"{pad(f'{x[1][x[1].rfind(chr(0x2F)) + 1:]}[{x[0]}]:', 20)} {x[2].__name__}"
+		))
 
-		if field == "[SAVE]":		break
-		if field == "[NEW_FIELD]":	config = add_field(config); continue
-		field = valid[fields.index(field)]
-		config = edit_field(config, field)
+		try:
+			if field == "[SAVE]":		break
+			if field == "[NEW_FIELD]":	config = add_field(config); continue
+			config = edit_field(config, field)
+		except ValueError as e: input(f"{e}\npress_enter to continue...")
 
 	with open(f"{EMU_DIR}/configs/{config_name}", "w") as file:
 		json.dump(config, file, indent=4)
@@ -153,15 +162,15 @@ if __name__ == "__main__":
 
 	configs = os.listdir(f"{EMU_DIR}/configs")
 	if not configs: raise ValueError("no emulation config found")
-	config = configs[0] if len(configs) <= 1 else \
-		prompt(List(
-			"emulation_config",
-			message="select emulation config",
-			choices=["[NEW_CONFIG]"] + configs
-		))["emulation_config"]
+	config = prompt(Choice(
+		"emulation_config",
+		message="select emulation config",
+		choices=["[NEW_CONFIG]"] + configs
+	))
 
 	if config == "[NEW_CONFIG]":	new_config()
 	else:							edit_config(config)
 
 # TODO: values on edit screen?
 # TODO: edit containers??
+# TODO: delete?

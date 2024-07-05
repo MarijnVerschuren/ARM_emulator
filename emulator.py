@@ -4,13 +4,10 @@ from unicorn.arm_const import *
 from capstone import *
 # TUI includes
 from inquirer import List, Checkbox, prompt as _prompt
-from argparse import ArgumentParser
 from rich import print
+from argparse import Namespace as namespace
 # helper includes
-from subprocess import Popen, PIPE, STDOUT
-from functools import partial
-from struct import pack
-from re import finditer
+import readline
 # general includes
 import json, sys, os
 
@@ -21,7 +18,8 @@ dir_name =	os.path.dirname
 abs_path =	os.path.abspath
 
 # constants
-EMU_DIR = abs_path(dir_name(__file__))
+EMU_DIR =	abs_path(dir_name(__file__))
+CFG	=		namespace()
 
 # init disassembler
 asm = Cs(CS_ARCH_ARM, UC_MODE_THUMB); asm.detail = True
@@ -34,10 +32,44 @@ def exception_hook(type, value, traceback):
 		sys.exit(0)
 	else: sys.__excepthook__(type, value, traceback)
 
-# analysis
-def analyze_binary(binary: str, code: bytes) -> dict:
+# init
+def init_config() -> None:
+	configs = os.listdir(f"{EMU_DIR}/configs")
+	if not configs: raise ValueError("no emulation config found")
+	config = configs[0] if len(configs) <= 1 else \
+		prompt(List(
+			"emulation_config",
+			message="select emulation config",
+			choices=configs
+		))["emulation_config"]
+
+	with open(f"{EMU_DIR}/configs/{config}", "r") as file:
+		config = json.load(file)
+		file.close()
+
+	CFG.emu = config["EMU"]
+	CFG.dut = config["DUT"]
+def compile_env() -> str:
+	envs = os.popen("cat platformio.ini | grep env: | sed 's/.*env://' | sed 's/]//'").read()
+	if not envs: raise ValueError("no platformio config found")
+	envs = envs.split("\n")[:-1]
+	env = envs[0] if len(envs) <= 1 else \
+		prompt(List(
+			"build_config",
+			message="select build config",
+			choices=envs
+		))["build_config"]
+
+	os.system(f"pio debug -e {env}")
+	os.system(f"cp ./.pio/build/{env}/firmware.bin {EMU_DIR}/{env}.bin")
+	os.system(f"cp ./.pio/build/{env}/firmware.elf {EMU_DIR}/{env}.elf")
+	return env
+def load_binary(env: str) -> None:
+	with open(f"{EMU_DIR}/{env}.bin", "rb") as prog:
+		code = prog.read()
+		prog.close()
 	symbols = os.popen(
-		f"arm-none-eabi-readelf {binary} -Ws |" +
+		f"arm-none-eabi-readelf {EMU_DIR}/{env}.elf -Ws |" +
 		"grep -E 'FUNC|OBJECT|SECTION' |" +
 		"grep -E 'LOCAL|GLOBAL' |" +
 		"sed 's/.*: //'"
@@ -47,7 +79,9 @@ def analyze_binary(binary: str, code: bytes) -> dict:
 	sections =		sorted([(int(s[0:8], 16), s[43:]) for s in symbols if "SECTION" in s], key=lambda x: x[0])
 	functions =		sorted([(int(s[0:8], 16), int(s[8:14]), s[43:]) for s in symbols if "FUNC" in s], key=lambda x: x[0])
 	variables =		sorted([(int(s[0:8], 16), int(s[8:14]), s[43:]) for s in symbols if "OBJECT" in s], key=lambda x: x[0])
-	return {
+
+	CFG.code = code
+	CFG.info = {
 		"stack_pointer":	stack_pointer,
 		"entry_point":		entry_point,
 		"sections":			sections,
@@ -88,42 +122,22 @@ def interrupt_hook(emu, address, size, user_data):
 if __name__ == "__main__":
 	sys.excepthook = exception_hook
 
-	configs = os.listdir(f"{EMU_DIR}/configs")
-	if not configs: raise ValueError("no emulation config found")
-	config = configs[0] if len(configs) <= 1 else \
-		prompt(List(
-			"emulation_config",
-			message="select emulation config",
-			choices=configs
-		))["emulation_config"]
+	# init sequence
+	init_config()
+	env = compile_env()
+	load_binary(env)
 
-	with open(f"{EMU_DIR}/configs/{config}", "r") as file:
-		config = json.load(file)
+	# unpack variables
 
-	envs = os.popen("cat platformio.ini | grep env: | sed 's/.*env://' | sed 's/]//'").read()
-	if not envs: raise ValueError("no platformio config found")
-	envs = envs.split("\n")[:-1]
-	env = envs[0] if len(envs) <= 1 else \
-		prompt(List(
-			"build_config",
-			message="select build config",
-			choices=envs
-		))["build_config"]
+	print(CFG, CFG.__dict__)
 
-	os.system(f"pio debug -e {env}")
-	os.system(f"cp ./.pio/build/{env}/firmware.bin {EMU_DIR}/{env}.bin")
-	os.system(f"cp ./.pio/build/{env}/firmware.elf {EMU_DIR}/{env}.elf")
+	# setup memory map and code loading
+	#emu.mem_map(flash["bank_0"], flash["bank_1"] - flash["bank_0"])	# map flash bank 0
+	#emu.mem_map(periph["start"], periph["end"] - periph["start"])	# map peripheral space
+	# emu.mem_map(UNKNOWN, UNKNOWN_END - UNKNOWN)	# map unknown space
+	# emu.mem_map(VAR_BASE, 0x100000)		# map variable space
 
-	# read binary
-	ADDRESS = config["memory"]["load"]
-	with open(f"{EMU_DIR}/{env}.bin", "rb") as prog:
-		CODE = prog.read()
-		prog.close()
-
-	info = analyze_binary(f"{EMU_DIR}/{env}.elf", CODE)
-
-	print(config, env, info)
-
+	# TODO
 
 # ARM emulator should:
 # 1. Read the ./doc/ files to find information on pin definitions and memory map
