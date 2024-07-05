@@ -3,28 +3,25 @@ from unicorn import *
 from unicorn.arm_const import *
 from capstone import *
 # TUI includes
-from inquirer import List, Checkbox, prompt as _prompt
 from rich import print
-# helper includes
-import readline
 # general includes
 import json, sys, os
 
-from helpers import namespace
+# custom includes
+from helpers import *
+from emulator import *
 
 
 # partials, lambda's and aliases
-prompt = lambda x: _prompt([x,], raise_keyboard_interrupt=True)
 dir_name =	os.path.dirname
 abs_path =	os.path.abspath
 
-# constants
-EMU_DIR =	abs_path(dir_name(__file__))
-CFG	=		namespace()
 
-# init disassembler
-asm = Cs(CS_ARCH_ARM, UC_MODE_THUMB); asm.detail = True
-emu = Uc(UC_ARCH_ARM, UC_MODE_THUMB)
+# constants
+EMU_DIR =		abs_path(dir_name(__file__))
+CFG	=			namespace()
+CFG.asm = asm =	Cs(CS_ARCH_ARM, UC_MODE_THUMB); asm.detail = True
+emu =			Uc(UC_ARCH_ARM, UC_MODE_THUMB)
 
 
 # Python exception handler
@@ -33,24 +30,16 @@ def exception_hook(type, value, traceback):
 		sys.exit(0)
 	else: sys.__excepthook__(type, value, traceback)
 
-# helpers
-def parse_dict(data: dict) -> namespace:
-	ns = namespace(**data)
-	for key, val in data.items():
-		if not isinstance(val, dict): continue
-		ns.__setattr__(key, parse_dict(val))
-	return ns
-
 # init
 def init_config() -> None:
 	configs = os.listdir(f"{EMU_DIR}/configs")
 	if not configs: raise ValueError("no emulation config found")
 	config = configs[0] if len(configs) <= 1 else \
-		prompt(List(
+		prompt(Choice(
 			"emulation_config",
 			message="select emulation config",
 			choices=configs
-		))["emulation_config"]
+		))
 
 	with open(f"{EMU_DIR}/configs/{config}", "r") as file:
 		config = json.load(file)
@@ -63,11 +52,11 @@ def compile_env() -> str:
 	if not envs: raise ValueError("no platformio config found")
 	envs = envs.split("\n")[:-1]
 	env = envs[0] if len(envs) <= 1 else \
-		prompt(List(
+		prompt(Choice(
 			"build_config",
 			message="select build config",
 			choices=envs
-		))["build_config"]
+		))
 
 	os.system(f"pio debug -e {env}")
 	os.system(f"cp ./.pio/build/{env}/firmware.bin {EMU_DIR}/{env}.bin")
@@ -99,32 +88,6 @@ def load_binary(env: str) -> None:
 	})
 
 
-
-# emulation hooks
-def memory_invalid_hook(emu, access, address, size, value, user_data):
-	print(f"invalid: {access}, {hex(address)}, {size}, {value}: {hex(value)}")
-	return False
-
-def memory_read_hook(emu, access, address, size, value, user_data):
-	print(f"read: {access}, {hex(address)}, {size}, {value}")
-
-def memory_write_hook(emu, access, address, size, value, user_data):
-	print(f"write: {access}, {hex(address)}, {size}, {value}")
-
-def code_hook(emu, address, size, user_data):
-	f_address = 0; f_name = ""
-	for f_address, s, f_name in CFG.info.functions[::-1]:
-		if f_address < address: break
-	opcode = emu.mem_read(address, size)
-	mnemonics = asm.disasm(opcode, address)
-	for i in mnemonics:
-		print(f"{hex(i.address)} ({f_name} + {hex(address - f_address)}): {i.mnemonic}\t{i.op_str}")
-
-def interrupt_hook(emu, address, size, user_data):
-	print("interrupt")
-
-
-
 if __name__ == "__main__":
 	sys.excepthook = exception_hook
 
@@ -133,32 +96,32 @@ if __name__ == "__main__":
 	env = compile_env()
 	load_binary(env)
 
-	print(CFG)
-
 	# setup memory map and code loading
-	for bank in CFG.emu.mem.flash:	emu.mem_map(CFG.dut.mem.flash[bank],		CFG.dut.mem.flash[f"{bank}_size"])		# memory map flash banks
-	if CFG.emu.mem.periph:			emu.mem_map(CFG.dut.mem.periph.start,		CFG.dut.mem.periph.size)				# memory map peripheral space
-	if CFG.emu.mem.var:				emu.mem_map(CFG.dut.mem.var.start,			CFG.dut.mem.var.size)					# memory map variable space
-	if CFG.emu.mem.ROM_table:		emu.mem_map(CFG.dut.mem.ROM_table.start,	CFG.dut.mem.ROM_table.size)				# memory map ROM_table space
-	emu.mem_write(CFG.emu.mem.load, CFG.code)																			# load code
+	emem, dmem = CFG.emu.mem, CFG.dut.mem
+	for bank in emem.flash:	emu.mem_map(dmem.flash[bank],		dmem.mem.flash[f"{bank}_size"])		# memory map flash banks
+	if emem.periph:			emu.mem_map(dmem.periph.start,		dmem.mem.periph.size)				# memory map peripheral space
+	if emem.var:			emu.mem_map(dmem.var.start,			dmem.mem.var.size)					# memory map variable space
+	if emem.ROM_table:		emu.mem_map(dmem.ROM_table.start,	dmem.mem.ROM_table.size)			# memory map ROM_table space
+	emu.mem_write(emem.load, CFG.code)																# load code
 
 	# add hooks
 	emu.hook_add(
 		UC_HOOK_MEM_READ_UNMAPPED	|
 		UC_HOOK_MEM_WRITE_UNMAPPED	|
 		UC_HOOK_MEM_INVALID,
-		memory_invalid_hook
+		memory_invalid_hook,
+		user_data=CFG
 	)
-	emu.hook_add(UC_HOOK_MEM_READ,		memory_read_hook)
-	emu.hook_add(UC_HOOK_MEM_WRITE,		memory_write_hook)
-	emu.hook_add(UC_HOOK_CODE,			code_hook)
-	emu.hook_add(UC_HOOK_INTR,			interrupt_hook)
-
-	emu.reg_write(UC_ARM_REG_SP, CFG.info.stack_pointer)
+	emu.hook_add(UC_HOOK_MEM_READ,		memory_read_hook,	user_data=CFG)
+	emu.hook_add(UC_HOOK_MEM_WRITE,		memory_write_hook,	user_data=CFG)
+	emu.hook_add(UC_HOOK_CODE,			code_hook,			user_data=CFG)
+	emu.hook_add(UC_HOOK_INTR,			interrupt_hook,		user_data=CFG)
 
 	# start emulation
-	try:					emu.emu_start(CFG.info.entry_point, CFG.emu.mem.load + len(CFG.code))
+	emu.reg_write(UC_ARM_REG_SP, CFG.info.stack_pointer)
+	try:					emu.emu_start(CFG.info.entry_point, emem.load + len(CFG.code))
 	except UcError as e:	print(e)
+
 
 # ARM emulator should:
 # 1. Read the ./doc/ files to find information on pin definitions and memory map

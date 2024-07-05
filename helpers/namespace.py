@@ -1,5 +1,6 @@
 __all__ = [
-	"namespace"
+	"namespace",
+	"parse_dict"
 ]
 
 
@@ -16,3 +17,12 @@ class namespace:
 	def __str__(self) -> str:							return f"<namespace({', '.join([f'{key}={val}' for key, val in self.__dict__.items()])})>"
 	def __repr__(self) -> str:							return self.__str__()
 	def __len__(self) -> int:							return len(self.__dict__.keys())
+
+
+
+def parse_dict(data: dict) -> namespace:
+	ns = namespace(**data)
+	for key, val in data.items():
+		if not isinstance(val, dict): continue
+		ns.__setattr__(key, parse_dict(val))
+	return ns

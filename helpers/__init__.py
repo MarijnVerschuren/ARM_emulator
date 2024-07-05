@@ -8,5 +8,6 @@ __all__ = [
 	"Multi_Choice",
 	"prompt",
 	# namespace.py
-	"namespace"
+	"namespace",
+	"parse_dict"
 ]
