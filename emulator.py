@@ -5,11 +5,12 @@ from capstone import *
 # TUI includes
 from inquirer import List, Checkbox, prompt as _prompt
 from rich import print
-from argparse import Namespace as namespace
 # helper includes
 import readline
 # general includes
 import json, sys, os
+
+from helpers import namespace
 
 
 # partials, lambda's and aliases
@@ -32,6 +33,14 @@ def exception_hook(type, value, traceback):
 		sys.exit(0)
 	else: sys.__excepthook__(type, value, traceback)
 
+# helpers
+def parse_dict(data: dict) -> namespace:
+	ns = namespace(**data)
+	for key, val in data.items():
+		if not isinstance(val, dict): continue
+		ns.__setattr__(key, parse_dict(val))
+	return ns
+
 # init
 def init_config() -> None:
 	configs = os.listdir(f"{EMU_DIR}/configs")
@@ -47,8 +56,8 @@ def init_config() -> None:
 		config = json.load(file)
 		file.close()
 
-	CFG.emu = config["EMU"]
-	CFG.dut = config["DUT"]
+	CFG.emu = parse_dict(config["EMU"])
+	CFG.dut = parse_dict(config["DUT"])
 def compile_env() -> str:
 	envs = os.popen("cat platformio.ini | grep env: | sed 's/.*env://' | sed 's/]//'").read()
 	if not envs: raise ValueError("no platformio config found")
@@ -81,13 +90,13 @@ def load_binary(env: str) -> None:
 	variables =		sorted([(int(s[0:8], 16), int(s[8:14]), s[43:]) for s in symbols if "OBJECT" in s], key=lambda x: x[0])
 
 	CFG.code = code
-	CFG.info = {
+	CFG.info = namespace(**{
 		"stack_pointer":	stack_pointer,
 		"entry_point":		entry_point,
 		"sections":			sections,
 		"functions":		functions,
 		"variables":		variables
-	}
+	})
 
 
 
@@ -96,23 +105,20 @@ def memory_invalid_hook(emu, access, address, size, value, user_data):
 	print(f"invalid: {access}, {hex(address)}, {size}, {value}: {hex(value)}")
 	return False
 
-
 def memory_read_hook(emu, access, address, size, value, user_data):
 	print(f"read: {access}, {hex(address)}, {size}, {value}")
-
 
 def memory_write_hook(emu, access, address, size, value, user_data):
 	print(f"write: {access}, {hex(address)}, {size}, {value}")
 
-
 def code_hook(emu, address, size, user_data):
-	for f_address, s, f_name in info["functions"][::-1]:
+	f_address = 0; f_name = ""
+	for f_address, s, f_name in CFG.info.functions[::-1]:
 		if f_address < address: break
 	opcode = emu.mem_read(address, size)
 	mnemonics = asm.disasm(opcode, address)
 	for i in mnemonics:
 		print(f"{hex(i.address)} ({f_name} + {hex(address - f_address)}): {i.mnemonic}\t{i.op_str}")
-
 
 def interrupt_hook(emu, address, size, user_data):
 	print("interrupt")
@@ -124,12 +130,11 @@ if __name__ == "__main__":
 
 	# init sequence
 	init_config()
+	print(CFG)
 	env = compile_env()
 	load_binary(env)
 
-	# unpack variables
-
-	print(CFG, CFG.__dict__)
+	print(CFG)
 
 	# setup memory map and code loading
 	#emu.mem_map(flash["bank_0"], flash["bank_1"] - flash["bank_0"])	# map flash bank 0
