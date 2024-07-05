@@ -34,6 +34,28 @@ def exception_hook(type, value, traceback):
 		sys.exit(0)
 	else: sys.__excepthook__(type, value, traceback)
 
+# analysis
+def analyze_binary(binary: str, code: bytes) -> dict:
+	symbols = os.popen(
+		f"arm-none-eabi-readelf {binary} -Ws |" +
+		"grep -E 'FUNC|OBJECT|SECTION' |" +
+		"grep -E 'LOCAL|GLOBAL' |" +
+		"sed 's/.*: //'"
+	).read().split("\n")
+	stack_pointer =	int.from_bytes(code[0:4], "little")
+	entry_point =	int.from_bytes(code[4:8], "little")
+	sections =		sorted([(int(s[0:8], 16), s[43:]) for s in symbols if "SECTION" in s], key=lambda x: x[0])
+	functions =		sorted([(int(s[0:8], 16), int(s[8:14]), s[43:]) for s in symbols if "FUNC" in s], key=lambda x: x[0])
+	variables =		sorted([(int(s[0:8], 16), int(s[8:14]), s[43:]) for s in symbols if "OBJECT" in s], key=lambda x: x[0])
+	return {
+		"stack_pointer":	stack_pointer,
+		"entry_point":		entry_point,
+		"sections":			sections,
+		"functions":		functions,
+		"variables":		variables
+	}
+
+
 
 # emulation hooks
 def memory_invalid_hook(emu, access, address, size, value, user_data):
@@ -50,7 +72,7 @@ def memory_write_hook(emu, access, address, size, value, user_data):
 
 
 def code_hook(emu, address, size, user_data):
-	for f_address, s, f_name in functions[::-1]:
+	for f_address, s, f_name in info["functions"][::-1]:
 		if f_address < address: break
 	opcode = emu.mem_read(address, size)
 	mnemonics = asm.disasm(opcode, address)
@@ -92,25 +114,15 @@ if __name__ == "__main__":
 	os.system(f"cp ./.pio/build/{env}/firmware.bin {EMU_DIR}/{env}.bin")
 	os.system(f"cp ./.pio/build/{env}/firmware.elf {EMU_DIR}/{env}.elf")
 
-	# read and analyse binary
+	# read binary
 	ADDRESS = config["memory"]["load"]
 	with open(f"{EMU_DIR}/{env}.bin", "rb") as prog:
 		CODE = prog.read()
 		prog.close()
 
-	symbols = os.popen(
-		f"arm-none-eabi-readelf {EMU_DIR}/{env}.elf -Ws |" +
-		"grep -E 'FUNC|OBJECT|SECTION' |" +
-		"grep -E 'LOCAL|GLOBAL' |" +
-		"sed 's/.*: //'"
-	).read().split("\n")
-	sp = int.from_bytes(CODE[0:4], "little")
-	entry = int.from_bytes(CODE[4:8], "little")
-	sections = sorted([(int(s[0:8], 16), s[43:]) for s in symbols if "SECTION" in s], key=lambda x: x[0])
-	functions = sorted([(int(s[0:8], 16), int(s[8:14]), s[43:]) for s in symbols if "FUNC" in s], key=lambda x: x[0])
-	variables = sorted([(int(s[0:8], 16), int(s[8:14]), s[43:]) for s in symbols if "OBJECT" in s], key=lambda x: x[0])
+	info = analyze_binary(f"{EMU_DIR}/{env}.elf", CODE)
 
-	print(config, env, sp, entry, sections, functions, variables)
+	print(config, env, info)
 
 
 # ARM emulator should:
