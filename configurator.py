@@ -24,6 +24,9 @@ def exception_hook(type, value, traceback) -> None:
 	else: sys.__excepthook__(type, value, traceback)
 
 # helpers
+def pad(msg: str, count: int, char: str = " ") -> str:
+	return f"{msg}{char * (count - len(msg))}"
+
 def get_keys(data: CONTAINERS, path: str = "") -> list[tuple[str, str, type]]:
 	if not isinstance(data, dict): data = {i: x for i, x in enumerate(data)}
 	keys = [(x, path, type(y)) for x, y in data.items()]
@@ -58,18 +61,22 @@ def safe_input(prompt: str, expect: type) -> int | float | bool | str:
 
 
 # functions
-def edit_field(config: dict, field: tuple[str, str, type]) -> dict:  # TODO: !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
+def edit_field(config: dict, field: tuple[str, str, type]) -> dict:
 	name, path, type = field
 	parent = iter_path(config, path)
-	if type == int:		print(parent[name], hex(parent[name]), sep="\n"); input() # TODO
-	elif type == float:	pass
-	elif type == bool:	pass
+	print("current value:")
+	if type == int:
+		print(f"dec: {parent[name]}", f"hex: {hex(parent[name])}", sep="\n")
+		config[name] = safe_input("new value: ", int)
+		return config
+	print(parent[name])
+	config[name] = safe_input("new value: ", type)
 	return config
 
 def add_field(config: dict) -> dict:
 	valid =		[("[ROOT]", None, dict)] + [(x, y, z) for x, y, z in get_keys(config) if z in CONTAINERS]
 	choices =	[name for name, _, __ in valid]
-	print(json.dumps(config, indent=4))
+	print(config)
 	parent = prompt(List(
 		"parent",
 		message="select field to edit",
@@ -103,20 +110,23 @@ def add_field(config: dict) -> dict:
 	return config
 
 
+# TODO: template???
 def new_config() -> None:
-	pass  # TODO
+	config_name = safe_input("config name: ", str)
+	with open(f"{EMU_DIR}/configs/{config_name}", "wx") as file:
+		json.dump({}, file)
+		file.close()
+	edit_config(config_name)
 
 def edit_config(config_name: str) -> None:
 	with open(f"{EMU_DIR}/configs/{config_name}", "r") as file:
 		config = json.load(file)
+		file.close()
 
 	while True:
 		clear()
 		valid = [(x, y, z) for x, y, z in get_keys(config) if z not in CONTAINERS]
-		fields = [
-			f"{y[y.rfind('/') + 1:]}[{x}]: {z.__name__}" if isinstance(x, int)
-			else f"{x}: {z.__name__}" for x, y, z in valid
-		]
+		fields = [f"{pad(f'{y[y.rfind(chr(0x2F)) + 1:]}[{x}]:', 20)} {z.__name__}" for x, y, z in valid]
 		field = prompt(List(
 			"field",
 			message="select field to edit",
@@ -134,6 +144,7 @@ def edit_config(config_name: str) -> None:
 
 	with open(f"{EMU_DIR}/configs/{config_name}", "w") as file:
 		json.dump(config, file, indent=4)
+		file.close()
 
 
 
@@ -152,3 +163,5 @@ if __name__ == "__main__":
 	if config == "[NEW_CONFIG]":	new_config()
 	else:							edit_config(config)
 
+# TODO: values on edit screen?
+# TODO: edit containers??
