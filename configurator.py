@@ -25,7 +25,7 @@ def exception_hook(type, value, traceback) -> None:
 
 # helpers
 def get_keys(data: CONTAINERS, path: str = "") -> list[tuple[str, str, type]]:
-	if type(data) != dict: data = {i: x for i, x in enumerate(data)}
+	if not isinstance(data, dict): data = {i: x for i, x in enumerate(data)}
 	keys = [(x, path, type(y)) for x, y in data.items()]
 	local_keys = keys.copy()
 	for key, _, t in local_keys:
@@ -33,11 +33,35 @@ def get_keys(data: CONTAINERS, path: str = "") -> list[tuple[str, str, type]]:
 		keys += get_keys(data[key], f"{path}/{key}")
 	return keys
 
+def iter_path(config: dict, path: str) -> CONTAINERS:
+	if not path: return config
+	for p in path.split("/")[1:]:
+		config = config[p]
+	return config
+
+# inputs
+def safe_input(prompt: str, expect: type) -> int | float | bool | str:
+	while True:
+		try:
+			data = input(prompt)
+			if expect == int:
+				data = data.lower().strip("ul")
+				if data.startswith("0x"):	data = int(data, 16)
+				elif data.endswith("h"):	data = int(data[:-1], 16)
+				elif data.startswith("0o"):	data = int(data, 8)
+				else:						data = int(data)
+			elif expect == float:			data = float(data)
+			elif expect == bool:			data = bool(data)
+			return data
+		except ValueError as e: pass
+
+
 
 # functions
 def edit_field(config: dict, field: tuple[str, str, type]) -> dict:  # TODO: !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
 	name, path, type = field
-	if type == int:		pass
+	parent = iter_path(config, path)
+	if type == int:		print(parent[name], hex(parent[name]), sep="\n"); input() # TODO
 	elif type == float:	pass
 	elif type == bool:	pass
 	return config
@@ -49,15 +73,32 @@ def add_field(config: dict) -> dict:
 	parent = prompt(List(
 		"parent",
 		message="select field to edit",
-		choices=choices
+		choices= ["[CANCEL]"] + choices
 	))["parent"]
+	if parent == "[CANCEL]": return config
 	parent, path, type = valid[choices.index(parent)]
 
+	current = iter_path(config, path)
+	if parent != "[ROOT]": current = current[parent]
+
 	if type == dict:
-		pass  # TODO!!!!!!
-	else:
-		print("list")
-		pass  # TODO<<<<<<<<<<<<<<<
+		name = safe_input("field name: ", str)
+		add = lambda x: current.update({name: x})
+	else: add = current.append
+
+	choices =	[int, float, bool, str, dict, list, tuple]
+	formatted =	[c.__name__ for c in choices]
+	type = prompt(List(
+		"type",
+		message="select field type",
+		choices=formatted
+	))["type"]
+	type = choices[formatted.index(type)]
+
+	if type in CONTAINERS:	data = type()
+	else:					data = safe_input("field data: ", type)
+
+	add(data)
 
 	return config
 
@@ -70,9 +111,12 @@ def edit_config(config_name: str) -> None:
 		config = json.load(file)
 
 	while True:
-		# clear()  TODO<<<<<<<<<<<<<<<<<<<<<<
+		clear()
 		valid = [(x, y, z) for x, y, z in get_keys(config) if z not in CONTAINERS]
-		fields = [f"{x}: {z.__name__}" for x, y, z in valid]
+		fields = [
+			f"{y[y.rfind('/') + 1:]}[{x}]: {z.__name__}" if isinstance(x, int)
+			else f"{x}: {z.__name__}" for x, y, z in valid
+		]
 		field = prompt(List(
 			"field",
 			message="select field to edit",
