@@ -136,9 +136,10 @@ if __name__ == "__main__":
 	print(CFG)
 
 	# setup memory map and code loading
-	for bank in CFG.emu.mem.flash:	emu.mem_map(CFG.dut.mem.flash[bank],	CFG.dut.mem.flash[f"{bank}_size"])			# memory map flash banks
-	if CFG.emu.mem.periph:			emu.mem_map(CFG.dut.mem.periph.start,	CFG.dut.mem.periph.size)					# memory map peripheral space
-	if CFG.emu.mem.var:				emu.mem_map(CFG.dut.mem.var.start,		CFG.dut.mem.var.size)						# memory map variable space
+	for bank in CFG.emu.mem.flash:	emu.mem_map(CFG.dut.mem.flash[bank],		CFG.dut.mem.flash[f"{bank}_size"])		# memory map flash banks
+	if CFG.emu.mem.periph:			emu.mem_map(CFG.dut.mem.periph.start,		CFG.dut.mem.periph.size)				# memory map peripheral space
+	if CFG.emu.mem.var:				emu.mem_map(CFG.dut.mem.var.start,			CFG.dut.mem.var.size)					# memory map variable space
+	if CFG.emu.mem.ROM_table:		emu.mem_map(CFG.dut.mem.ROM_table.start,	CFG.dut.mem.ROM_table.size)				# memory map ROM_table space
 	emu.mem_write(CFG.emu.mem.load, CFG.code)																			# load code
 
 	# add hooks

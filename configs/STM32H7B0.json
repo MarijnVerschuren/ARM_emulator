@@ -6,7 +6,8 @@
             ],
             "var": true,
             "periph": true,
-			"load": 134217728
+            "ROM_table": true,
+            "load": 134217728
         }
     },
     "DUT": {
@@ -34,6 +35,10 @@
                     "APB4": 402653184,
                     "AHB4": 402784256
                 }
+            },
+            "ROM_table": {
+                "start": 3758096384,
+                "size": 1048576
             }
         },
         "dev": {
