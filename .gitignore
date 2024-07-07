@@ -3,3 +3,4 @@ __pypackages__/
 .idea
 *.elf
 *.bin
+doc/

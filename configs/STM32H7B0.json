@@ -8,7 +8,8 @@
             "periph": true,
             "ROM_table": true,
             "load": 134217728
-        }
+        },
+		"hardware": "STM32H7B0"
     },
     "DUT": {
         "mem": {
@@ -40,9 +41,6 @@
                 "start": 3758096384,
                 "size": 1048576
             }
-        },
-        "dev": {
-            "RCC": {}
         }
     }
 }
