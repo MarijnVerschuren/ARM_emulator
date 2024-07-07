@@ -28,12 +28,13 @@ def exception_hook(type, value, traceback) -> None:
 
 
 # helpers
+def pad(msg: str, until: int, char: str = " ") -> str: return f"{msg}{char * (until - len(msg))}"
 def format_bits(bits: list) -> list:
 	prev = None
 	return [
 		prev := ''.join(list(filter(lambda x: x in set(printable), bit)))
 		if bit else prev for bit in bits
-	]
+	][::-1]
 def select_dev(config: dict) -> str:
 	devices = list(config.keys())
 	dev = prompt(Choice(
@@ -44,17 +45,28 @@ def select_dev(config: dict) -> str:
 	if dev == "[NEW_DEVICE]":
 		dev = safe_input("device name: ", str)
 	return dev
-def select_bit(dev_config: dict, msg: str = "") -> tuple[int, str]:
+def select_bit(dev_config: dict, msg: str = "", show_reset: bool = False) -> tuple[int, str]:
 	offset, reg = prompt(Choice(
 		"reg",
 		message=f"select {msg} register",
 		format_choices=list(dev_config.items()),
 		format=lambda x: x[1]["label"]
 	))
+
+	format = lambda x: x
+	def srf(bit: str) -> str:
+		if bit == srf.prev:	srf.count += 1
+		else:				srf.count = 0
+		srf.prev = bit; offset = reg["bits"].index(bit) + srf.count
+		return f"{pad(bit, 20)}{reg['reset'][offset]}"
+	srf.prev = None; srf.count = 0
+	if show_reset: format = srf
+
 	bit = prompt(Choice(
 		"bit",
 		message=f"select {msg} bit (field)",
-		choices=[bit for bit in reg["bits"] if bit.lower() != "res."]
+		format_choices=[bit for bit in reg["bits"] if bit.lower() != "res."],
+		format=format
 	))
 	return offset, bit
 
@@ -104,13 +116,12 @@ def load_register_map(doc_path: str) -> dict:
 	return res
 def save_register_map(table: Table, config_path: str) -> None:
 	data =	table.data
-
 	rows = {}
 	try:
 		for index, dat in enumerate(data):
 			offset:	int = dat[0]
 			value:	str = dat[1]
-			bits:	list = dat[1:]
+			bits:	list = dat[2:]
 			if value in ["Reserved", "Reset value", "Register name"]: continue
 			bits = format_bits(bits)
 			print(bits)
@@ -130,10 +141,27 @@ def save_register_map(table: Table, config_path: str) -> None:
 	dev = select_dev(config)
 	config[dev] = rows
 	with open(config_path, "w") as file:
-		try:
-			json.dump(config, file, indent=4)
-		except:
-			print(config)
+		try:	json.dump(config, file, indent=4)
+		except:	print(config)
+		file.close()
+def set_default_value(config_path: str) -> None:
+	with open(config_path, "r") as file:
+		config = json.load(file)
+		file.close()
+
+	dev = select_dev(config)
+	dev_config = config[dev]
+	offset, bit = select_bit(dev_config, "source", True)
+	reg = dev_config[offset]
+	field_size = reg["bits"].count(bit)
+	bit_offset = reg["bits"].index(bit)
+	init = reg["reset"]
+	config[dev][offset]["reset"] = (
+			init[:bit_offset] + "{0:b}".format(safe_input("new value: ", int)) + init[bit_offset + field_size:]
+	)
+
+	with open(config_path, "w") as file:
+		json.dump(config, file, indent=4)
 		file.close()
 def add_emulation_rule(config_path: str) -> None:
 	with open(config_path, "r") as file:
@@ -158,15 +186,16 @@ def add_emulation_rule(config_path: str) -> None:
 	if act == "write":			act = ("write", safe_input(f"set {t_bit} to: ", int))
 	else:						act = ("copy", select_bit(dev_config, "copy source"))
 	if "actions" not in config[dev][s_offset]:
-		config[dev][s_offset]["actions"] = []
-	config[dev][s_offset]["actions"].append({
-		"source":	dev_config[s_offset]["bits"].index(s_bit),
-		"trigger":	trigger,
-		"target":	{
-			"offset":		t_offset,
-			"bit_offset":	dev_config[t_offset]["bits"].index(t_bit)
-		},
-		"action":	act
+		config[dev][s_offset]["actions"] = {}
+	config[dev][s_offset]["actions"].update({
+		dev_config[s_offset]["bits"].index(s_bit): {
+			"trigger":	trigger,
+			"target":	{
+				"offset":		t_offset,
+				"bit_offset":	dev_config[t_offset]["bits"].index(t_bit)
+			},
+			"action":	act
+		}
 	})
 
 	with open(config_path, "w") as file:
@@ -204,6 +233,7 @@ if __name__ == "__main__":
 		message="select configuration action",
 		choices=[
 			"load register map",
+			"set default value",
 			"add emulation rule"
 		]
 	))
@@ -211,5 +241,7 @@ if __name__ == "__main__":
 	if action == "load register map":
 		table = load_register_map(f"./doc/{doc}")
 		save_register_map(table, f"{EMU_DIR}/dev_configs/{config}")
+	elif action == "set default value":
+		set_default_value(f"{EMU_DIR}/dev_configs/{config}")
 	elif action == "add emulation rule":
 		add_emulation_rule(f"{EMU_DIR}/dev_configs/{config}")
