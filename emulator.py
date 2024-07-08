@@ -30,6 +30,7 @@ def exception_hook(type, value, traceback):
 		sys.exit(0)
 	else: sys.__excepthook__(type, value, traceback)
 
+
 # init
 def init_config() -> None:
 	configs = os.listdir(f"{EMU_DIR}/configs")
@@ -47,6 +48,10 @@ def init_config() -> None:
 
 	CFG.emu = parse_dict(config["EMU"])
 	CFG.dut = parse_dict(config["DUT"])
+
+	with open(f"{EMU_DIR}/dev_configs/{CFG.dut.hardware}") as file:
+		CFG.dut.hardware = init_hardware(json.load(file))
+		file.close()
 def compile_env() -> str:
 	envs = os.popen("cat platformio.ini | grep env: | sed 's/.*env://' | sed 's/]//'").read()
 	if not envs: raise ValueError("no platformio config found")
@@ -86,6 +91,7 @@ def load_binary(env: str) -> None:
 		"functions":		functions,
 		"variables":		variables
 	})
+
 
 
 if __name__ == "__main__":

@@ -58,7 +58,7 @@ def select_bit(dev_config: dict, msg: str = "", show_reset: bool = False) -> tup
 		if bit == srf.prev:	srf.count += 1
 		else:				srf.count = 0
 		srf.prev = bit; offset = reg["bits"].index(bit) + srf.count
-		return f"{pad(bit, 20)}{reg['reset'][offset]}"
+		return f"{pad(bit, 20)}{(reg['reset'] >> offset) & ((2 ^ srf.count) - 1)}"
 	srf.prev = None; srf.count = 0
 	if show_reset: format = srf
 
@@ -90,13 +90,11 @@ class Table:
 			self.data += other.data
 		return self
 
-
-def load_register_map(doc_path: str) -> dict:
+# TODO: load_register_map into safe register
+def load_register_map(doc_path: str) -> Table:
 	doc = open_pdf(doc_path)
-
-	page_num =		safe_input("register map page number: ", int)
-	page_count =	safe_input("register map page count: ", int)
-
+	page_num =		safe_input("register map page number: ",	int)
+	page_count =	safe_input("register map page count: ",	int)
 	segments = []
 	for i in range(-1, page_count - 1, 1):
 		page: Page = doc[page_num + i]
@@ -106,7 +104,6 @@ def load_register_map(doc_path: str) -> dict:
 			if not data: continue
 			tab = Table(data[0], data[0:])
 			segments.append(tab)
-
 	res = None
 	if len(segments) > 1:
 		res = segments[0]
@@ -114,6 +111,13 @@ def load_register_map(doc_path: str) -> dict:
 			res += segment
 	else: res = segments[0]
 	return res
+def get_base_cfg(dev_name: str) -> dict:
+	base_cfg = {}
+	cfg_count =	safe_input("device count: ", int)
+	for i in range(cfg_count):
+		name = f"{dev_name}{f'_{i + 1}' if cfg_count > 1 else ''}"
+		base_cfg[name] = safe_input(f"base for {name}: ", int)
+	return base_cfg
 def save_register_map(table: Table, config_path: str) -> None:
 	data =	table.data
 	rows = {}
@@ -124,22 +128,18 @@ def save_register_map(table: Table, config_path: str) -> None:
 			bits:	list = dat[2:]
 			if value in ["Reserved", "Reset value", "Register name"]: continue
 			bits = format_bits(bits)
-			print(bits)
-			reset = ''.join([x if x else '0' for x in data[index + 1][2:]])
+			reset = int(''.join([x if x == '1' else '0' for x in data[index + 1][2:]]), 2)
 			rows.update({offset: {
 				"label": value[value.find("_") + 1:],
 				"bits": bits,
 				"reset": reset
 			}})
-
 	except IndexError: pass
-
 	with open(config_path, "r") as file:
 		config = json.load(file)
 		file.close()
-
 	dev = select_dev(config)
-	config[dev] = rows
+	config[dev] = [get_base_cfg(dev), rows]
 	with open(config_path, "w") as file:
 		try:	json.dump(config, file, indent=4)
 		except:	print(config)
@@ -153,11 +153,11 @@ def set_default_value(config_path: str) -> None:
 	dev_config = config[dev]
 	offset, bit = select_bit(dev_config, "source", True)
 	reg = dev_config[offset]
-	field_size = reg["bits"].count(bit)
+	mask = (2 ** reg["bits"].count(bit)) - 1
 	bit_offset = reg["bits"].index(bit)
-	init = reg["reset"]
 	config[dev][offset]["reset"] = (
-			init[:bit_offset] + "{0:b}".format(safe_input("new value: ", int)) + init[bit_offset + field_size:]
+			(reg["reset"] & ~(mask << bit_offset)) |
+			((safe_input("new value: ", int) & mask) << bit_offset)
 	)
 
 	with open(config_path, "w") as file:
