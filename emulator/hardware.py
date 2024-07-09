@@ -28,7 +28,7 @@ class Peripheral:
 		self.map_max =	max(map(lambda x: int(x, 16), self.map.keys())) + 4
 
 	def offset(self, addr: int) -> tuple[bool, int]:
-		offset: int = self.base - addr
+		offset: int = addr - self.base
 		return 0 <= offset < self.map_max, offset
 	def read(self, offset: int) -> None:				self.map[str(offset)].read()
 	def write(self, offset: int, value: int) -> None:	self.map[str(offset)].write(value)
@@ -57,6 +57,7 @@ class Register:
 
 
 
+# helpers / inits
 def init_hardware(cfg: dict) -> list[Peripheral]:
 	peripherals = []
 	for type, data in cfg.items():
@@ -64,7 +65,6 @@ def init_hardware(cfg: dict) -> list[Peripheral]:
 		for label, base in base_cfg.items():
 			peripherals.append(Peripheral(type, regs, label, base))
 	return peripherals
-
 
 
 # emulation hooks
@@ -76,6 +76,8 @@ def memory_read_hook(emu, access, address, size, value, user_data):
 	peripherals: list[Peripheral] = user_data.dut.hardware
 	for periph in peripherals:
 		in_range, offset = periph.offset(address)
+		if 0x40000000 <= address < 0x40000000 + 0x18030000:
+			input(f"{hex(address)}, {in_range}, {offset}, {periph.label}")
 		if not in_range: continue
 		periph.read(offset); break
 	else: print(f"read: {access}, {hex(address)}, {size}, {value}")
@@ -84,6 +86,8 @@ def memory_write_hook(emu, access, address, size, value, user_data):
 	peripherals: list[Peripheral] = user_data.dut.hardware
 	for periph in peripherals:
 		in_range, offset = periph.offset(address)
+		if 0x40000000 <= address < 0x40000000 + 0x18030000:
+			input(f"{hex(address)}, {in_range}, {offset}, {periph.label}")
 		if not in_range: continue
 		periph.write(offset, value); break
 	else: print(f"write: {access}, {hex(address)}, {size}, {value}")
