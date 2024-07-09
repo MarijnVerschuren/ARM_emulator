@@ -22,7 +22,7 @@ __all__ = [
 class Peripheral:
 	def __init__(self, type: str, reg_map: dict, label: str, base: int) -> None:
 		self.type =		type
-		self.map = 		{offset: Register(*reg) for offset, reg in reg_map.items()}
+		self.map = 		{offset: Register(self, **reg) for offset, reg in reg_map.items()}
 		self.label =	label
 		self.base =		base
 		self.map_max =	max(map(lambda x: int(x, 16), self.map.keys())) + 4
@@ -32,13 +32,15 @@ class Peripheral:
 		return 0 <= offset < self.map_max, offset
 	def read(self, offset: int) -> None:				self.map[str(offset)].read()
 	def write(self, offset: int, value: int) -> None:	self.map[str(offset)].write(value)
+
 	def __getitem__(self, offset: int) -> Register:		return self.map[str(offset)]
 	def __str__(self) -> str:	return f"<{self.label}@{self.base}, {self.map}>"
 	def __repr__(self) -> str:	return f"<{self.label}@{self.base}>"
 
 
 class Register:
-	def __init__(self, label: str, bits: list[str], reset: int, actions: dict = None) -> None:
+	def __init__(self, parent: Peripheral, label: str, bits: list[str], reset: int, actions: dict = None) -> None:
+		self.parent =	parent
 		self.label =	label
 		self.bits =		bits
 		self.reset =	reset
@@ -48,11 +50,10 @@ class Register:
 	def __repr__(self) -> str:	return f"<{self.label}>"
 
 	def read(self) -> None:
-		print(f"read {self.label}")
-		pass # TODO
+		print(f"read {self.parent.label}->{self.label}")
+
 	def write(self, val: int) -> None:
-		print(f"write {self.label} with {val}")
-		pass # TODO
+		print(f"write {self.parent.label}->{self.label} with {val}")
 
 
 
@@ -76,16 +77,16 @@ def memory_read_hook(emu, access, address, size, value, user_data):
 	for periph in peripherals:
 		in_range, offset = periph.offset(address)
 		if not in_range: continue
-		periph.read(offset)
-	print(f"read: {access}, {hex(address)}, {size}, {value}")
+		periph.read(offset); break
+	else: print(f"read: {access}, {hex(address)}, {size}, {value}")
 
 def memory_write_hook(emu, access, address, size, value, user_data):
 	peripherals: list[Peripheral] = user_data.dut.hardware
 	for periph in peripherals:
 		in_range, offset = periph.offset(address)
 		if not in_range: continue
-		periph.write(offset, value)
-	print(f"write: {access}, {hex(address)}, {size}, {value}")
+		periph.write(offset, value); break
+	else: print(f"write: {access}, {hex(address)}, {size}, {value}")
 
 def code_hook(emu, address, size, user_data):
 	f_address = 0; f_name = ""
