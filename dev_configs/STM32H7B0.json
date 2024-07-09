@@ -410,12 +410,10 @@
                     "Res.",
                     "Res."
                 ],
-                "reset": 5,
+                "reset": 37,
                 "actions": [
                     {
-                        "setting": {
-                            "setting": 1
-                        },
+                        "setting": 1,
                         "source": {
                             "bit_offset": 0,
                             "count": 1
@@ -431,9 +429,7 @@
                         }
                     },
                     {
-                        "setting": {
-                            "setting": 1
-                        },
+                        "setting": 1,
                         "source": {
                             "bit_offset": 7,
                             "count": 1
@@ -449,9 +445,7 @@
                         }
                     },
                     {
-                        "setting": {
-                            "setting": 1
-                        },
+                        "setting": 1,
                         "source": {
                             "bit_offset": 12,
                             "count": 1
@@ -467,9 +461,7 @@
                         }
                     },
                     {
-                        "setting": {
-                            "setting": 1
-                        },
+                        "setting": 1,
                         "source": {
                             "bit_offset": 16,
                             "count": 1

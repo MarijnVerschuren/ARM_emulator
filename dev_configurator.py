@@ -156,10 +156,10 @@ def set_default_value(config_path: str) -> None:
 	dev = select_dev(config)
 	_, dev_config = config[dev]
 	offset, count, bit = select_bit(dev_config, "source", True)
-	reg = dev_config[offset]
+	reg = dev_config[str(offset)]
 	mask = (2 ** count) - 1
 	bit_offset = reg["bits"].index(bit)
-	config[dev][1][offset]["reset"] = (
+	config[dev][1][str(offset)]["reset"] = (
 			(reg["reset"] & ~(mask << bit_offset)) |
 			((safe_input("new value: ", int) & mask) << bit_offset)
 	)
@@ -185,7 +185,7 @@ def add_emulation_rule(config_path: str) -> None:
 	setting = None
 	if trigger == "setting":
 		trigger = "write"
-		action["setting"] = {"setting": safe_input("trigger setting: ", int)}
+		action["setting"] = safe_input("trigger setting: ", int)
 	if trigger != "read":
 		action["source"] = {
 			"bit_offset": dev_config[str(s_offset)]["bits"].index(s_bit),
