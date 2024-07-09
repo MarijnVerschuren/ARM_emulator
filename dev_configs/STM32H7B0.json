@@ -410,7 +410,81 @@
                     "Res.",
                     "Res."
                 ],
-                "reset": 5
+                "reset": 5,
+                "actions": [
+                    {
+                        "setting": {
+                            "setting": 1
+                        },
+                        "source": {
+                            "bit_offset": 0,
+                            "count": 1
+                        },
+                        "trigger": "write",
+                        "target": {
+                            "offset": 0,
+                            "bit_offset": 2,
+                            "count": 1
+                        },
+                        "action": {
+                            "write": 1
+                        }
+                    },
+                    {
+                        "setting": {
+                            "setting": 1
+                        },
+                        "source": {
+                            "bit_offset": 7,
+                            "count": 1
+                        },
+                        "trigger": "write",
+                        "target": {
+                            "offset": 0,
+                            "bit_offset": 8,
+                            "count": 1
+                        },
+                        "action": {
+                            "write": 1
+                        }
+                    },
+                    {
+                        "setting": {
+                            "setting": 1
+                        },
+                        "source": {
+                            "bit_offset": 12,
+                            "count": 1
+                        },
+                        "trigger": "write",
+                        "target": {
+                            "offset": 0,
+                            "bit_offset": 13,
+                            "count": 1
+                        },
+                        "action": {
+                            "write": 1
+                        }
+                    },
+                    {
+                        "setting": {
+                            "setting": 1
+                        },
+                        "source": {
+                            "bit_offset": 16,
+                            "count": 1
+                        },
+                        "trigger": "write",
+                        "target": {
+                            "offset": 0,
+                            "bit_offset": 17,
+                            "count": 1
+                        },
+                        "action": {
+                            "write": 1
+                        }
+                    }
+                ]
             },
             "4": {
                 "label": "HSICFGR",

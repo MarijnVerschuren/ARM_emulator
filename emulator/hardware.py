@@ -27,7 +27,7 @@ class Peripheral:
 	def __init__(self, emu, type: str, reg_map: dict, label: str, base: int) -> None:
 		self.emu =		emu
 		self.type =		type
-		self.map = 		{offset: Register(self, emu, **reg) for offset, reg in reg_map.items()}
+		self.map = 		{offset: Register(emu, self, int(offset), **reg) for offset, reg in reg_map.items()}
 		self.label =	label
 		self.base =		base
 		self.map_max =	max(map(lambda x: int(x, 16), self.map.keys())) + 4
@@ -52,9 +52,10 @@ class Peripheral:
 
 
 class Register:
-	def __init__(self, parent: Peripheral, emu, label: str, bits: list[str], reset: int, actions: dict = None) -> None:
+	def __init__(self, emu, parent: Peripheral, offset: int, label: str, bits: list[str], reset: int, actions: dict = None) -> None:
 		self.emu =		emu
 		self.parent =	parent
+		self.offset =	offset
 		self.label =	label
 		self.bits =		bits
 		self.reset =	reset
@@ -72,27 +73,28 @@ class Register:
 				c_ptr = self.parent.base + dat["offset"]
 				data = int.from_bytes(self.emu.mem_read(c_ptr, 4), byteorder="little")
 				dat = (data >> dat["bit_offset"]) & ((2 ** dat["count"]) - 1)
-			dat = (dat << dst["bit_offset"]) & ((2 ** dst["count"]) - 1)
+			dat = (dat & ((2 ** dst["count"]) - 1)) << dst["bit_offset"]
+			input(f"{hex(dat)}, {hex(d_ptr)}")
 			self.emu.mem_write(d_ptr, dat.to_bytes(4, byteorder="little"))
 
 	def read(self) -> None:
 		print(f"read {self.parent.label}->{self.label}")
+		if not self.actions: return
 		for action in self.actions:
 			if action["trigger"] != "read": continue
 			self.action(action)
 
 	def write(self, val: int) -> None:
+		self.emu.mem_write(self.parent.base + self.offset, val.to_bytes(4, byteorder="little"))
 		print(f"write {self.parent.label}->{self.label} with {val}")
+		if not self.actions: return
 		for action in self.actions:
 			if action["trigger"] != "write": continue
 			src = action["source"]
 			s_mask = ((2 ** src["count"]) - 1) << src["bit_offset"]
-			if "setting" not in action and not val & s_mask:					continue
-			elif ((val & s_mask) >> src["bit_offset"]) != action["setting"]:	continue
+			if "setting" not in action and not val & s_mask:											continue
+			elif "setting" in action and ((val & s_mask) >> src["bit_offset"]) != action["setting"]:	continue
 			self.action(action)
-
-
-
 
 
 
@@ -102,7 +104,7 @@ def load_hardware_config(emu, cfg: dict) -> list[Peripheral]:
 	for type, data in cfg.items():
 		base_cfg, regs = data
 		for label, base in base_cfg.items():
-			peripherals.append(Peripheral(type, regs, label, base))
+			peripherals.append(Peripheral(emu, type, regs, label, base))
 	return peripherals
 
 def init_hardware(emu, hardware: list[Peripheral]) -> None:
