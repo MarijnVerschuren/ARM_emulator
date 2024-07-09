@@ -9,7 +9,11 @@ from helpers import *
 
 
 __all__ = [
+	"Peripheral",
+	"Register",
+	"load_hardware_config",
 	"init_hardware",
+
 	"memory_invalid_hook",
 	"memory_read_hook",
 	"memory_write_hook",
@@ -26,6 +30,7 @@ class Peripheral:
 		self.label =	label
 		self.base =		base
 		self.map_max =	max(map(lambda x: int(x, 16), self.map.keys())) + 4
+		self.i = 0
 
 	def offset(self, addr: int) -> tuple[bool, int]:
 		offset: int = addr - self.base
@@ -34,6 +39,9 @@ class Peripheral:
 	def write(self, offset: int, value: int) -> None:	self.map[str(offset)].write(value)
 
 	def __getitem__(self, offset: int) -> Register:		return self.map[str(offset)]
+	def __iter__(self) -> "Peripheral":					self.i = 0; return self
+	def __next__(self) -> tuple:						data = list(self.map.items())[self.i]; self.i += 1; return data
+
 	def __str__(self) -> str:	return f"<{self.label}@{self.base}, {self.map}>"
 	def __repr__(self) -> str:	return f"<{self.label}@{self.base}>"
 
@@ -57,14 +65,22 @@ class Register:
 
 
 
-# helpers / inits
-def init_hardware(cfg: dict) -> list[Peripheral]:
+# init
+def load_hardware_config(cfg: dict) -> list[Peripheral]:
 	peripherals = []
 	for type, data in cfg.items():
 		base_cfg, regs = data
 		for label, base in base_cfg.items():
 			peripherals.append(Peripheral(type, regs, label, base))
 	return peripherals
+
+def init_hardware(emu, hardware: list[Peripheral]) -> None:
+	for peripheral in hardware:
+		for offset, register in peripheral:
+			print(hex(peripheral.base + offset), hex(register.reset), register)
+			emu.mem_write(peripheral.base + offset, register.reset)
+	input()
+
 
 
 # emulation hooks
@@ -80,7 +96,6 @@ def memory_read_hook(emu, access, address, size, value, user_data):
 		print(f"{hex(access)} -> {hex(address)}, {offset}")
 		periph.read(offset); break
 	else: print(f"read: {access}, {hex(address)}, {size}, {value}")
-	input()
 
 def memory_write_hook(emu, access, address, size, value, user_data):
 	peripherals: list[Peripheral] = user_data.dut.hardware
@@ -90,7 +105,6 @@ def memory_write_hook(emu, access, address, size, value, user_data):
 		print(f"{hex(access)} -> {hex(address)}, {offset}")
 		periph.write(offset, value); break
 	else: print(f"write: {access}, {hex(address)}, {size}, {value}")
-	input()
 
 def code_hook(emu, address, size, user_data):
 	f_address = 0; f_name = ""

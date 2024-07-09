@@ -50,8 +50,9 @@ def init_config() -> None:
 	CFG.dut = parse_dict(config["DUT"])
 
 	with open(f"{EMU_DIR}/dev_configs/{CFG.dut.hardware}") as file:
-		CFG.dut.hardware = init_hardware(json.load(file))
+		CFG.dut.hardware = load_hardware_config(json.load(file))
 		file.close()
+
 def compile_env() -> str:
 	envs = os.popen("cat platformio.ini | grep env: | sed 's/.*env://' | sed 's/]//'").read()
 	if not envs: raise ValueError("no platformio config found")
@@ -122,6 +123,9 @@ if __name__ == "__main__":
 	emu.hook_add(UC_HOOK_MEM_WRITE,		memory_write_hook,	user_data=CFG)
 	emu.hook_add(UC_HOOK_CODE,			code_hook,			user_data=CFG)
 	emu.hook_add(UC_HOOK_INTR,			interrupt_hook,		user_data=CFG)
+
+	# init hardware emulation
+	init_hardware(emu, CFG.dut.hardware)
 
 	# start emulation
 	emu.reg_write(UC_ARM_REG_SP, CFG.info.stack_pointer)
