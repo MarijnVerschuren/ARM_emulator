@@ -230,7 +230,28 @@
                     "Res.",
                     "Res."
                 ],
-                "reset": 24576
+                "reset": 24576,
+                "actions": [
+                    {
+                        "trigger": "write",
+                        "source": {
+                            "bit_offset": 14,
+                            "count": 2
+                        },
+                        "target": {
+                            "offset": 4,
+                            "bit_offset": 14,
+                            "count": 2
+                        },
+                        "action": {
+                            "copy": {
+                                "offset": 24,
+                                "bit_offset": 14,
+                                "count": 2
+                            }
+                        }
+                    }
+                ]
             },
             "32": {
                 "label": "WKUPCR",

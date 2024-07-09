@@ -50,7 +50,7 @@ def init_config() -> None:
 	CFG.dut = parse_dict(config["DUT"])
 
 	with open(f"{EMU_DIR}/dev_configs/{CFG.dut.hardware}") as file:
-		CFG.dut.hardware = load_hardware_config(json.load(file))
+		CFG.dut.hardware = load_hardware_config(emu, json.load(file))
 		file.close()
 
 def compile_env() -> str:

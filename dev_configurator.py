@@ -45,7 +45,8 @@ def select_dev(config: dict) -> str:
 	if dev == "[NEW_DEVICE]":
 		dev = safe_input("device name: ", str)
 	return dev
-def select_bit(dev_config: dict, msg: str = "", show_reset: bool = False) -> tuple[int, str]:
+
+def select_bit(dev_config: dict, msg: str = "", show_reset: bool = False) -> tuple[int, int, str]:
 	offset, reg = prompt(Choice(
 		"reg",
 		message=f"select {msg} register",
@@ -68,7 +69,7 @@ def select_bit(dev_config: dict, msg: str = "", show_reset: bool = False) -> tup
 		format_choices=[bit for bit in reg["bits"] if bit.lower() != "res."],
 		format=format
 	))
-	return offset, bit
+	return int(offset), reg["bits"].count(bit), bit
 
 
 # types
@@ -111,6 +112,7 @@ def load_register_map(doc_path: str) -> Table:
 			res += segment
 	else: res = segments[0]
 	return res
+
 def get_base_cfg(dev_name: str) -> dict:
 	base_cfg = {}
 	cfg_count =	safe_input("device count: ", int)
@@ -118,6 +120,7 @@ def get_base_cfg(dev_name: str) -> dict:
 		name = f"{dev_name}{f'_{i + 1}' if cfg_count > 1 else ''}"
 		base_cfg[name] = safe_input(f"base for {name}: ", int)
 	return base_cfg
+
 def save_register_map(table: Table, config_path: str) -> None:
 	data =	table.data
 	rows = {}
@@ -144,6 +147,7 @@ def save_register_map(table: Table, config_path: str) -> None:
 		try:	json.dump(config, file, indent=4)
 		except:	print(config)
 		file.close()
+
 def set_default_value(config_path: str) -> None:
 	with open(config_path, "r") as file:
 		config = json.load(file)
@@ -151,9 +155,9 @@ def set_default_value(config_path: str) -> None:
 
 	dev = select_dev(config)
 	_, dev_config = config[dev]
-	offset, bit = select_bit(dev_config, "source", True)
+	offset, count, bit = select_bit(dev_config, "source", True)
 	reg = dev_config[offset]
-	mask = (2 ** reg["bits"].count(bit)) - 1
+	mask = (2 ** count) - 1
 	bit_offset = reg["bits"].index(bit)
 	config[dev][1][offset]["reset"] = (
 			(reg["reset"] & ~(mask << bit_offset)) |
@@ -163,40 +167,57 @@ def set_default_value(config_path: str) -> None:
 	with open(config_path, "w") as file:
 		json.dump(config, file, indent=4)
 		file.close()
+
 def add_emulation_rule(config_path: str) -> None:
 	with open(config_path, "r") as file:
 		config = json.load(file)
 		file.close()
 
+	action = {}
 	dev = select_dev(config)
-	dev_config = config[dev]
-	s_offset, s_bit = select_bit(dev_config, "source")
+	_, dev_config = config[dev]
+	s_offset, s_count, s_bit = select_bit(dev_config, "source")
 	trigger = prompt(Choice(
 		"trigger",
 		message=f"trigger type",
 		choices=["read", "write", "setting"]
 	))
-	if trigger == "setting":	trigger = ("setting", safe_input("trigger setting: ", int))
-	t_offset, t_bit = select_bit(dev_config, "target")
+	setting = None
+	if trigger == "setting":
+		trigger = "write"
+		action["setting"] = {"setting": safe_input("trigger setting: ", int)}
+	if trigger != "read":
+		action["source"] = {
+			"bit_offset": dev_config[str(s_offset)]["bits"].index(s_bit),
+			"count": s_count
+		}
+	t_offset, t_count, t_bit = select_bit(dev_config, "target")
+	target = {
+		"offset":		t_offset,
+		"bit_offset":	dev_config[str(t_offset)]["bits"].index(t_bit),
+		"count":		t_count
+	}
 	act = prompt(Choice(
 		"action",
 		message=f"action type",
 		choices=["write", "copy"]
 	))
-	if act == "write":			act = ("write", safe_input(f"set {t_bit} to: ", int))
-	else:						act = ("copy", select_bit(dev_config, "copy source"))
-	if "actions" not in config[dev][s_offset]:
-		config[dev][s_offset]["actions"] = {}
-	config[dev][s_offset]["actions"].update({
-		dev_config[s_offset]["bits"].index(s_bit): {
-			"trigger":	trigger,
-			"target":	{
-				"offset":		t_offset,
-				"bit_offset":	dev_config[t_offset]["bits"].index(t_bit)
-			},
-			"action":	act
-		}
+	if act == "write":	act = {"write": safe_input(f"set {t_bit} to: ", int)}
+	else:
+		c_offset, c_count, c_bit = select_bit(dev_config, "copy source")
+		act = {"copy": {
+			"offset": c_offset,
+			"bit_offset": dev_config[str(c_offset)]["bits"].index(c_bit),
+			"count": c_count
+		}}
+	action.update({
+		"trigger":	trigger,
+		"target":	target,
+		"action":	act		# TODO: copy selection
 	})
+	if "actions" not in config[dev][1][str(s_offset)]:
+		config[dev][1][str(s_offset)]["actions"] = []
+	config[dev][1][str(s_offset)]["actions"].append(action)
 
 	with open(config_path, "w") as file:
 		json.dump(config, file, indent=4)

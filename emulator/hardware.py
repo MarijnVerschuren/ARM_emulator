@@ -24,9 +24,10 @@ __all__ = [
 
 # types
 class Peripheral:
-	def __init__(self, type: str, reg_map: dict, label: str, base: int) -> None:
+	def __init__(self, emu, type: str, reg_map: dict, label: str, base: int) -> None:
+		self.emu =		emu
 		self.type =		type
-		self.map = 		{offset: Register(self, **reg) for offset, reg in reg_map.items()}
+		self.map = 		{offset: Register(self, emu, **reg) for offset, reg in reg_map.items()}
 		self.label =	label
 		self.base =		base
 		self.map_max =	max(map(lambda x: int(x, 16), self.map.keys())) + 4
@@ -51,7 +52,8 @@ class Peripheral:
 
 
 class Register:
-	def __init__(self, parent: Peripheral, label: str, bits: list[str], reset: int, actions: dict = None) -> None:
+	def __init__(self, parent: Peripheral, emu, label: str, bits: list[str], reset: int, actions: dict = None) -> None:
+		self.emu =		emu
 		self.parent =	parent
 		self.label =	label
 		self.bits =		bits
@@ -61,16 +63,41 @@ class Register:
 	def __str__(self) -> str:	return f"<{self.label}, {self.bits}, {self.reset}>"
 	def __repr__(self) -> str:	return f"<{self.label}>"
 
+	def action(self, action: dict) -> None:
+		dst = action["target"]
+		d_ptr = self.parent.base + dst["offset"]
+		for act, dat in action["action"].items():
+			if act == "copy":
+				# TODO: inter periph copy
+				c_ptr = self.parent.base + dat["offset"]
+				data = int.from_bytes(self.emu.mem_read(c_ptr, 4), byteorder="little")
+				dat = (data >> dat["bit_offset"]) & ((2 ** dat["count"]) - 1)
+			dat = (dat << dst["bit_offset"]) & ((2 ** dst["count"]) - 1)
+			self.emu.mem_write(d_ptr, dat.to_bytes(4, byteorder="little"))
+
 	def read(self) -> None:
 		print(f"read {self.parent.label}->{self.label}")
+		for action in self.actions:
+			if action["trigger"] != "read": continue
+			self.action(action)
 
 	def write(self, val: int) -> None:
 		print(f"write {self.parent.label}->{self.label} with {val}")
+		for action in self.actions:
+			if action["trigger"] != "write": continue
+			src = action["source"]
+			s_mask = ((2 ** src["count"]) - 1) << src["bit_offset"]
+			if "setting" not in action and not val & s_mask:					continue
+			elif ((val & s_mask) >> src["bit_offset"]) != action["setting"]:	continue
+			self.action(action)
+
+
+
 
 
 
 # init
-def load_hardware_config(cfg: dict) -> list[Peripheral]:
+def load_hardware_config(emu, cfg: dict) -> list[Peripheral]:
 	peripherals = []
 	for type, data in cfg.items():
 		base_cfg, regs = data
@@ -95,7 +122,6 @@ def memory_read_hook(emu, access, address, size, value, user_data):
 	for periph in peripherals:
 		in_range, offset = periph.offset(address)
 		if not in_range: continue
-		print(f"read {value} from {hex(access)} -> {hex(address)}, {offset}")
 		periph.read(offset); break
 	else: print(f"read: {access}, {hex(address)}, {size}, {value}")
 
@@ -104,7 +130,6 @@ def memory_write_hook(emu, access, address, size, value, user_data):
 	for periph in peripherals:
 		in_range, offset = periph.offset(address)
 		if not in_range: continue
-		print(f"write {value} to {hex(access)} -> {hex(address)}, {offset}")
 		periph.write(offset, value); break
 	else: print(f"write: {access}, {hex(address)}, {size}, {value}")
 
