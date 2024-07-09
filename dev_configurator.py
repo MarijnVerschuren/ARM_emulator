@@ -123,7 +123,7 @@ def save_register_map(table: Table, config_path: str) -> None:
 	rows = {}
 	try:
 		for index, dat in enumerate(data):
-			offset:	int = dat[0]
+			offset:	str = dat[0]
 			value:	str = dat[1]
 			bits:	list = dat[2:]
 			if value in ["Reserved", "Reset value", "Register name"]: continue

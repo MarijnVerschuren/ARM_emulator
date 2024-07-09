@@ -20,17 +20,14 @@ __all__ = [
 
 # types
 class Peripheral:
-	def __init__(self, type: str, map: dict, label: str, base: int) -> None:
+	def __init__(self, type: str, reg_map: dict, label: str, base: int) -> None:
 		self.type =		type
-		self.map = 		{offset: Register(*reg) for offset, reg in map.items()}
+		self.map = 		{offset: Register(*reg) for offset, reg in reg_map.items()}
 		self.label =	label
 		self.base =		base
-		print(map, map.keys())
-		self.map_max =	max(self.map.keys()) + 4
-		print(self.map_max)
+		self.map_max =	max(map(lambda x: int(x, 16), self.map.keys())) + 4
 
 	def in_range(self, addr: int) -> bool:	return self.base <= addr < self.map_max
-
 	def read(self, offset: int) -> None:				self.map[offset].read()
 	def write(self, offset: int, value: int) -> None:	self.map[offset].write(value)
 	def __getitem__(self, offset: int) -> Register:		return self.map[offset]
