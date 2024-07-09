@@ -25,7 +25,9 @@ class Peripheral:
 		self.map = 		{offset: Register(*reg) for offset, reg in map.items()}
 		self.label =	label
 		self.base =		base
+		print(map, map.keys())
 		self.map_max =	max(self.map.keys()) + 4
+		print(self.map_max)
 
 	def in_range(self, addr: int) -> bool:	return self.base <= addr < self.map_max
 
