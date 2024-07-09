@@ -121,8 +121,8 @@ def get_base_cfg(dev_name: str) -> dict:
 def save_register_map(table: Table, config_path: str) -> None:
 	data =	table.data
 	rows = {}
-	try:
-		for index, dat in enumerate(data):
+	for index, dat in enumerate(data):
+		try:
 			offset:	int = int(dat[0], 16)
 			value:	str = dat[1]
 			bits:	list = dat[2:]
@@ -134,7 +134,7 @@ def save_register_map(table: Table, config_path: str) -> None:
 				"bits": bits,
 				"reset": reset
 			}})
-	except IndexError: pass
+		except Exception as e: pass
 	with open(config_path, "r") as file:
 		config = json.load(file)
 		file.close()

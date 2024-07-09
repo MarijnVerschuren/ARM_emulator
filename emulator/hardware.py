@@ -76,21 +76,21 @@ def memory_read_hook(emu, access, address, size, value, user_data):
 	peripherals: list[Peripheral] = user_data.dut.hardware
 	for periph in peripherals:
 		in_range, offset = periph.offset(address)
-		if 0x40000000 <= address < 0x40000000 + 0x18030000:
-			input(f"{hex(address)}, {in_range}, {offset}, {periph.label}")
 		if not in_range: continue
+		print(f"{hex(access)} -> {hex(address)}, {offset}")
 		periph.read(offset); break
 	else: print(f"read: {access}, {hex(address)}, {size}, {value}")
+	input()
 
 def memory_write_hook(emu, access, address, size, value, user_data):
 	peripherals: list[Peripheral] = user_data.dut.hardware
 	for periph in peripherals:
 		in_range, offset = periph.offset(address)
-		if 0x40000000 <= address < 0x40000000 + 0x18030000:
-			input(f"{hex(address)}, {in_range}, {offset}, {periph.label}")
 		if not in_range: continue
+		print(f"{hex(access)} -> {hex(address)}, {offset}")
 		periph.write(offset, value); break
 	else: print(f"write: {access}, {hex(address)}, {size}, {value}")
+	input()
 
 def code_hook(emu, address, size, user_data):
 	f_address = 0; f_name = ""
