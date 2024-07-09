@@ -27,7 +27,9 @@ class Peripheral:
 		self.base =		base
 		self.map_max =	max(map(lambda x: int(x, 16), self.map.keys())) + 4
 
-	def in_range(self, addr: int) -> bool:	return self.base <= addr < self.map_max
+	def offset(self, addr: int) -> tuple[bool, int]:
+		offset: int = self.base - addr
+		return 0 <= offset < self.map_max, offset
 	def read(self, offset: int) -> None:				self.map[offset].read()
 	def write(self, offset: int, value: int) -> None:	self.map[offset].write(value)
 	def __getitem__(self, offset: int) -> Register:		return self.map[offset]
@@ -72,17 +74,17 @@ def memory_invalid_hook(emu, access, address, size, value, user_data):
 def memory_read_hook(emu, access, address, size, value, user_data):
 	peripherals: list[Peripheral] = user_data.dut.hardware
 	for periph in peripherals:
-		offset = address - periph.base
-		if not periph.in_range(offset): continue
+		in_range, offset = periph.offset(address)
+		if in_range: continue
 		periph.read(offset)
 	print(f"read: {access}, {hex(address)}, {size}, {value}")
 
 def memory_write_hook(emu, access, address, size, value, user_data):
 	peripherals: list[Peripheral] = user_data.dut.hardware
 	for periph in peripherals:
-		offset = address - periph.base
-		if not periph.in_range(offset): continue
-		periph.write(offset, value)
+		in_range, offset = periph.offset(address)
+		if in_range: continue
+		periph.write(offset)
 	print(f"write: {access}, {hex(address)}, {size}, {value}")
 
 def code_hook(emu, address, size, user_data):
