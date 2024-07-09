@@ -95,7 +95,7 @@ def memory_read_hook(emu, access, address, size, value, user_data):
 	for periph in peripherals:
 		in_range, offset = periph.offset(address)
 		if not in_range: continue
-		print(f"{hex(access)} -> {hex(address)}, {offset}")
+		print(f"read {value} from {hex(access)} -> {hex(address)}, {offset}")
 		periph.read(offset); break
 	else: print(f"read: {access}, {hex(address)}, {size}, {value}")
 
@@ -104,7 +104,7 @@ def memory_write_hook(emu, access, address, size, value, user_data):
 	for periph in peripherals:
 		in_range, offset = periph.offset(address)
 		if not in_range: continue
-		print(f"{hex(access)} -> {hex(address)}, {offset}")
+		print(f"write {value} to {hex(access)} -> {hex(address)}, {offset}")
 		periph.write(offset, value); break
 	else: print(f"write: {access}, {hex(address)}, {size}, {value}")
 

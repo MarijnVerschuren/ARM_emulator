@@ -230,7 +230,7 @@
                     "Res.",
                     "Res."
                 ],
-                "reset": 16384
+                "reset": 24576
             },
             "32": {
                 "label": "WKUPCR",

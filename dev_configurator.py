@@ -150,12 +150,12 @@ def set_default_value(config_path: str) -> None:
 		file.close()
 
 	dev = select_dev(config)
-	dev_config = config[dev]
+	_, dev_config = config[dev]
 	offset, bit = select_bit(dev_config, "source", True)
 	reg = dev_config[offset]
 	mask = (2 ** reg["bits"].count(bit)) - 1
 	bit_offset = reg["bits"].index(bit)
-	config[dev][offset]["reset"] = (
+	config[dev][1][offset]["reset"] = (
 			(reg["reset"] & ~(mask << bit_offset)) |
 			((safe_input("new value: ", int) & mask) << bit_offset)
 	)
