@@ -123,9 +123,6 @@ if __name__ == "__main__":
 	emu.hook_add(UC_HOOK_CODE,			code_hook,			user_data=CFG)
 	emu.hook_add(UC_HOOK_INTR,			interrupt_hook,		user_data=CFG)
 
-	# init and start hardware emulation
-	init_hardware(CFG.dut)
-
 	# start emulation
 	emu.reg_write(UC_ARM_REG_SP, CFG.info.stack_pointer)
 	try:					emu.emu_start(CFG.info.entry_point, emem.load + len(CFG.code))

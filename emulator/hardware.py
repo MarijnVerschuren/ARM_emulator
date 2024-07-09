@@ -1,4 +1,5 @@
 # TUI includes
+from crc import Register
 from rich import print
 # general includes
 import json
@@ -24,19 +25,34 @@ class Peripheral:
 		self.map = 		{offset: Register(*reg) for offset, reg in map.items()}
 		self.label =	label
 		self.base =		base
+		self.map_max =	max(self.map.keys()) + 4
 
+	def in_range(self, addr: int) -> bool:	return self.base <= addr < self.map_max
+
+	def read(self, offset: int) -> None:				self.map[offset].read()
+	def write(self, offset: int, value: int) -> None:	self.map[offset].write(value)
+	def __getitem__(self, offset: int) -> Register:		return self.map[offset]
 	def __str__(self) -> str:	return f"<{self.label}@{self.base}, {self.map}>"
 	def __repr__(self) -> str:	return f"<{self.label}@{self.base}>"
 
 
 class Register:
-	def __init__(self, label: str, bits: list[str], reset: int) -> None:
+	def __init__(self, label: str, bits: list[str], reset: int, actions: dict = None) -> None:
 		self.label =	label
 		self.bits =		bits
 		self.reset =	reset
+		self.actions =	actions
 
 	def __str__(self) -> str:	return f"<{self.label}, {self.bits}, {self.reset}>"
 	def __repr__(self) -> str:	return f"<{self.label}>"
+
+	def read(self) -> None:
+		print(f"read {self.label}")
+		pass # TODO
+	def write(self, val: int) -> None:
+		print(f"write {self.label} with {val}")
+		pass # TODO
+
 
 
 def init_hardware(cfg: dict) -> list[Peripheral]:
@@ -55,9 +71,19 @@ def memory_invalid_hook(emu, access, address, size, value, user_data):
 	return False
 
 def memory_read_hook(emu, access, address, size, value, user_data):
+	peripherals: list[Peripheral] = user_data.dut.hardware
+	for periph in peripherals:
+		offset = address - periph.base
+		if not periph.in_range(offset): continue
+		periph.read(offset)
 	print(f"read: {access}, {hex(address)}, {size}, {value}")
 
 def memory_write_hook(emu, access, address, size, value, user_data):
+	peripherals: list[Peripheral] = user_data.dut.hardware
+	for periph in peripherals:
+		offset = address - periph.base
+		if not periph.in_range(offset): continue
+		periph.write(offset, value)
 	print(f"write: {access}, {hex(address)}, {size}, {value}")
 
 def code_hook(emu, address, size, user_data):
