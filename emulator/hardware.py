@@ -30,9 +30,9 @@ class Peripheral:
 	def offset(self, addr: int) -> tuple[bool, int]:
 		offset: int = self.base - addr
 		return 0 <= offset < self.map_max, offset
-	def read(self, offset: int) -> None:				self.map[offset].read()
-	def write(self, offset: int, value: int) -> None:	self.map[offset].write(value)
-	def __getitem__(self, offset: int) -> Register:		return self.map[offset]
+	def read(self, offset: int) -> None:				self.map[str(offset)].read()
+	def write(self, offset: int, value: int) -> None:	self.map[str(offset)].write(value)
+	def __getitem__(self, offset: int) -> Register:		return self.map[str(offset)]
 	def __str__(self) -> str:	return f"<{self.label}@{self.base}, {self.map}>"
 	def __repr__(self) -> str:	return f"<{self.label}@{self.base}>"
 

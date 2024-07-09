@@ -4,7 +4,7 @@
             "PWR": 1476526080
         },
         {
-            "0x000": {
+            "0": {
                 "label": "CR1",
                 "bits": [
                     "LPDS",
@@ -42,7 +42,7 @@
                 ],
                 "reset": 49152
             },
-            "0x004": {
+            "4": {
                 "label": "CSR1",
                 "bits": [
                     "Res.",
@@ -80,7 +80,7 @@
                 ],
                 "reset": 16384
             },
-            "0x008": {
+            "8": {
                 "label": "CR2",
                 "bits": [
                     "BREN",
@@ -118,7 +118,7 @@
                 ],
                 "reset": 0
             },
-            "0x00C": {
+            "18": {
                 "label": "CR3",
                 "bits": [
                     "BYPASS",
@@ -156,7 +156,7 @@
                 ],
                 "reset": 6
             },
-            "0x010": {
+            "22": {
                 "label": "CPUCR",
                 "bits": [
                     "RETDS_CD",
@@ -194,7 +194,7 @@
                 ],
                 "reset": 0
             },
-            "0x018": {
+            "36": {
                 "label": "SRDCR",
                 "bits": [
                     "Res.",
@@ -232,7 +232,7 @@
                 ],
                 "reset": 16384
             },
-            "0x020": {
+            "50": {
                 "label": "WKUPCR",
                 "bits": [
                     "WKUPC1",
@@ -270,7 +270,7 @@
                 ],
                 "reset": 0
             },
-            "0x024": {
+            "54": {
                 "label": "WKUPFR",
                 "bits": [
                     "WKUPF1",
@@ -308,7 +308,7 @@
                 ],
                 "reset": 0
             },
-            "0x028": {
+            "64": {
                 "label": "WKUPEPR",
                 "bits": [
                     "WKUPEN1",
@@ -353,7 +353,7 @@
             "RCC": 1476543488
         },
         {
-            "0x000": {
+            "0": {
                 "label": "CR",
                 "bits": [
                     "HSION",
@@ -391,7 +391,7 @@
                 ],
                 "reset": 5
             },
-            "0x004": {
+            "4": {
                 "label": "HSICFGR",
                 "bits": [
                     "HSICAL[11:0]",
@@ -429,7 +429,7 @@
                 ],
                 "reset": 1073741824
             },
-            "0x008": {
+            "8": {
                 "label": "CRRCR",
                 "bits": [
                     "HSI48CAL[9:0]",
@@ -467,7 +467,7 @@
                 ],
                 "reset": 0
             },
-            "0x00C": {
+            "18": {
                 "label": "CSICFGR",
                 "bits": [
                     "CSICAL[7:0]",
@@ -505,7 +505,7 @@
                 ],
                 "reset": 536870912
             },
-            "0x010": {
+            "22": {
                 "label": "CFGR",
                 "bits": [
                     "SW[2:0]",
@@ -543,7 +543,7 @@
                 ],
                 "reset": 0
             },
-            "0x018": {
+            "36": {
                 "label": "CDCFGR1",
                 "bits": [
                     "HPRE[3:0]",
@@ -581,7 +581,7 @@
                 ],
                 "reset": 0
             },
-            "0x01C": {
+            "40": {
                 "label": "CDCFGR2",
                 "bits": [
                     "Res.",
@@ -619,7 +619,7 @@
                 ],
                 "reset": 0
             },
-            "0x020": {
+            "50": {
                 "label": "SRDCFGR",
                 "bits": [
                     "Res.",
@@ -657,7 +657,7 @@
                 ],
                 "reset": 0
             },
-            "0x028": {
+            "64": {
                 "label": "PLLCKSELR",
                 "bits": [
                     "PLLSRC[1:0]",
@@ -695,7 +695,7 @@
                 ],
                 "reset": 33686016
             },
-            "0x02C": {
+            "68": {
                 "label": "PLLCFGR",
                 "bits": [
                     "PLL1FRACEN",
@@ -733,7 +733,7 @@
                 ],
                 "reset": 33488896
             },
-            "0x030": {
+            "72": {
                 "label": "PLL1DIVR",
                 "bits": [
                     "DIVN1[8:0]",
@@ -771,7 +771,7 @@
                 ],
                 "reset": 16843392
             },
-            "0x034": {
+            "82": {
                 "label": "PLL1FRACR",
                 "bits": [
                     "Res.",
@@ -809,7 +809,7 @@
                 ],
                 "reset": 0
             },
-            "0x038": {
+            "86": {
                 "label": "PLL2DIVR",
                 "bits": [
                     "DIVN2[8:0]",
@@ -847,7 +847,7 @@
                 ],
                 "reset": 16843392
             },
-            "0x03C": {
+            "96": {
                 "label": "PLL2FRACR",
                 "bits": [
                     "Res.",
@@ -885,7 +885,7 @@
                 ],
                 "reset": 0
             },
-            "0x040": {
+            "100": {
                 "label": "PLL3DIVR",
                 "bits": [
                     "DIVN3[8:0]",
@@ -923,7 +923,7 @@
                 ],
                 "reset": 16843392
             },
-            "0x044": {
+            "104": {
                 "label": "PLL3FRACR",
                 "bits": [
                     "Res.",
@@ -961,7 +961,7 @@
                 ],
                 "reset": 0
             },
-            "0x04C": {
+            "118": {
                 "label": "CDCCIPR",
                 "bits": [
                     "FMCSEL[1:0]",
@@ -999,7 +999,7 @@
                 ],
                 "reset": 0
             },
-            "0x050": {
+            "128": {
                 "label": "CDCCIP1R",
                 "bits": [
                     "SAI1SEL[2:0]",
@@ -1037,7 +1037,7 @@
                 ],
                 "reset": 0
             },
-            "0x054": {
+            "132": {
                 "label": "CDCCIP2R",
                 "bits": [
                     "USART234578SEL[2:0]",
@@ -1075,7 +1075,7 @@
                 ],
                 "reset": 0
             },
-            "0x058": {
+            "136": {
                 "label": "SRDCCIPR",
                 "bits": [
                     "LPUART1SEL[2:0]",
@@ -1113,7 +1113,7 @@
                 ],
                 "reset": 0
             },
-            "0x060": {
+            "150": {
                 "label": "CIER",
                 "bits": [
                     "LSIRDYIE",
@@ -1151,7 +1151,7 @@
                 ],
                 "reset": 0
             },
-            "0x064": {
+            "256": {
                 "label": "CIFR",
                 "bits": [
                     "LSIRDYF",
@@ -1189,7 +1189,7 @@
                 ],
                 "reset": 0
             },
-            "0x068": {
+            "260": {
                 "label": "CICR",
                 "bits": [
                     "LSIRDYC",
@@ -1227,7 +1227,7 @@
                 ],
                 "reset": 0
             },
-            "0x070": {
+            "274": {
                 "label": "BDCR",
                 "bits": [
                     "LSEON",
@@ -1265,7 +1265,7 @@
                 ],
                 "reset": 0
             },
-            "0x074": {
+            "278": {
                 "label": "CSR",
                 "bits": [
                     "LSION",
@@ -1303,7 +1303,7 @@
                 ],
                 "reset": 0
             },
-            "0x07C": {
+            "292": {
                 "label": "AHB3RSTR",
                 "bits": [
                     "MDMARST",
@@ -1341,7 +1341,7 @@
                 ],
                 "reset": 0
             },
-            "0x080": {
+            "296": {
                 "label": "AHB1RSTR",
                 "bits": [
                     "DMA1RST",
@@ -1379,7 +1379,7 @@
                 ],
                 "reset": 0
             },
-            "0x084": {
+            "306": {
                 "label": "AHB2RSTR",
                 "bits": [
                     "DCMI_PSSIRST",
@@ -1417,7 +1417,7 @@
                 ],
                 "reset": 0
             },
-            "0x088": {
+            "310": {
                 "label": "AHB4RSTR",
                 "bits": [
                     "GPIOARST",
@@ -1455,7 +1455,7 @@
                 ],
                 "reset": 0
             },
-            "0x08C": {
+            "320": {
                 "label": "APB3RSTR",
                 "bits": [
                     "Res.",
@@ -1493,7 +1493,7 @@
                 ],
                 "reset": 0
             },
-            "0x090": {
+            "324": {
                 "label": "APB1LRSTR",
                 "bits": [
                     "TIM2RST",
@@ -1531,7 +1531,7 @@
                 ],
                 "reset": 0
             },
-            "0x094": {
+            "328": {
                 "label": "APB1HRSTR",
                 "bits": [
                     "Res.",
@@ -1569,7 +1569,7 @@
                 ],
                 "reset": 0
             },
-            "0x098": {
+            "338": {
                 "label": "APB2RSTR",
                 "bits": [
                     "TIM1RST",
@@ -1607,7 +1607,7 @@
                 ],
                 "reset": 0
             },
-            "0x09C": {
+            "342": {
                 "label": "APB4RSTR",
                 "bits": [
                     "Res.",
@@ -1645,7 +1645,7 @@
                 ],
                 "reset": 0
             },
-            "0x0A8": {
+            "360": {
                 "label": "SRDAMR",
                 "bits": [
                     "BDMA2AMEN",
@@ -1683,7 +1683,7 @@
                 ],
                 "reset": 0
             },
-            "0x0B0": {
+            "374": {
                 "label": "CKGAENR",
                 "bits": [
                     "AXICKG",
@@ -1721,7 +1721,7 @@
                 ],
                 "reset": 0
             },
-            "0x130": {
+            "772": {
                 "label": "RSR",
                 "bits": [
                     "Res.",
@@ -1759,7 +1759,7 @@
                 ],
                 "reset": 15204352
             },
-            "0x134": {
+            "776": {
                 "label": "AHB3ENR",
                 "bits": [
                     "MDMAEN",
@@ -1797,7 +1797,7 @@
                 ],
                 "reset": 0
             },
-            "0x138": {
+            "786": {
                 "label": "AHB1ENR",
                 "bits": [
                     "DMA1EN",
@@ -1835,7 +1835,7 @@
                 ],
                 "reset": 0
             },
-            "0x13C": {
+            "790": {
                 "label": "AHB2ENR",
                 "bits": [
                     "DCMI_PSSIEN",
@@ -1873,7 +1873,7 @@
                 ],
                 "reset": 0
             },
-            "0x140": {
+            "800": {
                 "label": "AHB4ENR",
                 "bits": [
                     "GPIOAEN",
@@ -1911,7 +1911,7 @@
                 ],
                 "reset": 0
             },
-            "0x144": {
+            "804": {
                 "label": "APB3ENR",
                 "bits": [
                     "Res.",
@@ -1949,7 +1949,7 @@
                 ],
                 "reset": 0
             },
-            "0x148": {
+            "808": {
                 "label": "APB1LENR",
                 "bits": [
                     "TIM2EN",
@@ -1987,7 +1987,7 @@
                 ],
                 "reset": 0
             },
-            "0x14C": {
+            "818": {
                 "label": "APB1HENR",
                 "bits": [
                     "Res.",
@@ -2025,7 +2025,7 @@
                 ],
                 "reset": 0
             },
-            "0x150": {
+            "822": {
                 "label": "APB2ENR",
                 "bits": [
                     "TIM1EN",
@@ -2063,7 +2063,7 @@
                 ],
                 "reset": 0
             },
-            "0x154": {
+            "832": {
                 "label": "APB4ENR",
                 "bits": [
                     "Res.",
@@ -2101,7 +2101,7 @@
                 ],
                 "reset": 65536
             },
-            "0x15C": {
+            "840": {
                 "label": "AHB3LPENR",
                 "bits": [
                     "MDMALPEN",
@@ -2139,7 +2139,7 @@
                 ],
                 "reset": 4259926321
             },
-            "0x160": {
+            "850": {
                 "label": "AHB1LPENR",
                 "bits": [
                     "DMA1LPEN",
@@ -2177,7 +2177,7 @@
                 ],
                 "reset": 100663587
             },
-            "0x164": {
+            "854": {
                 "label": "AHB2LPENR",
                 "bits": [
                     "DCMI_PSSILPEN",
@@ -2215,7 +2215,7 @@
                 ],
                 "reset": 1610615409
             },
-            "0x168": {
+            "864": {
                 "label": "AHB4LPENR",
                 "bits": [
                     "GPIOALPEN",
@@ -2253,7 +2253,7 @@
                 ],
                 "reset": 807405567
             },
-            "0x16C": {
+            "868": {
                 "label": "APB3LPENR",
                 "bits": [
                     "Res.",
@@ -2291,7 +2291,7 @@
                 ],
                 "reset": 72
             },
-            "0x170": {
+            "872": {
                 "label": "APB1LLPENR",
                 "bits": [
                     "TIM2LPEN",
@@ -2329,7 +2329,7 @@
                 ],
                 "reset": 3909075967
             },
-            "0x174": {
+            "882": {
                 "label": "APB1HLPENR",
                 "bits": [
                     "Res.",
@@ -2367,7 +2367,7 @@
                 ],
                 "reset": 310
             },
-            "0x178": {
+            "886": {
                 "label": "APB2LPENR",
                 "bits": [
                     "TIM1LPEN",
@@ -2405,7 +2405,7 @@
                 ],
                 "reset": 1087844595
             },
-            "0x17C": {
+            "896": {
                 "label": "APB4LPENR",
                 "bits": [
                     "Res.",
