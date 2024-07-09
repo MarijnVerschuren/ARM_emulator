@@ -40,7 +40,11 @@ class Peripheral:
 
 	def __getitem__(self, offset: int) -> Register:		return self.map[str(offset)]
 	def __iter__(self) -> "Peripheral":					self.i = 0; return self
-	def __next__(self) -> tuple:						data = list(self.map.items())[self.i]; self.i += 1; return data
+	def __next__(self) -> tuple:
+		try:
+			data = list(self.map.items())[self.i]
+			self.i += 1; return data
+		except IndexError: raise StopIteration
 
 	def __str__(self) -> str:	return f"<{self.label}@{self.base}, {self.map}>"
 	def __repr__(self) -> str:	return f"<{self.label}@{self.base}>"
@@ -77,9 +81,7 @@ def load_hardware_config(cfg: dict) -> list[Peripheral]:
 def init_hardware(emu, hardware: list[Peripheral]) -> None:
 	for peripheral in hardware:
 		for offset, register in peripheral:
-			print(hex(peripheral.base + offset), hex(register.reset), register)
-			emu.mem_write(peripheral.base + offset, register.reset)
-	input()
+			emu.mem_write(peripheral.base + int(offset), register.reset.to_bytes(4, byteorder="little"))
 
 
 
