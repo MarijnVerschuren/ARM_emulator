@@ -4,8 +4,13 @@ from .serializer import *
 
 
 __all__ = [
-	"Software",
+	# hardware.py
 	"Hardware",
+	"Peripheral",
+	"Register",
+	# serializer.py
 	"load_emu",
-	"dump_emu"
+	"dump_emu",
+	# software.py
+	"Software"
 ]
