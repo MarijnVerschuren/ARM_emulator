@@ -5,7 +5,6 @@ from capstone import Cs
 from os import listdir
 
 # custom includes
-from serializer import *
 from helpers import *
 
 
@@ -16,7 +15,7 @@ __all__ = [
 
 # types
 class Software(Uc):
-	def __init__(self, arch: int, mode: int, hardware: str, config: dict) -> None:
+	def __init__(self, arch: int, mode: int, hardware: str, config: dict, load_emu: callable) -> None:
 		super(self.__class__, self).__init__(arch, mode)
 		self.asm = Cs(arch - 1, mode); self.asm.detail = True
 		with open(f"./dev_config/{hardware}.json", "r") as file:

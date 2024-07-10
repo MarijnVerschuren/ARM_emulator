@@ -35,7 +35,7 @@ class emu_decoder(JSONDecoder):
 		self.soft =		kwargs.get("soft", None)
 
 	def default(self, data: dict) -> object:
-		if self.emu_arch and self.emu_mode:		return Software(self.emu_arch, self.emu_mode, **data)
+		if self.emu_arch and self.emu_mode:		return Software(self.emu_arch, self.emu_mode, **data, load_emu=load_emu)
 		if self.soft:							return Hardware(self.soft, **data)
 		raise ValueError(
 			"""

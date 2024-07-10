@@ -9,6 +9,13 @@ from string import printable
 from pymupdf import open as open_pdf, Page
 import json, sys, os
 
+# custom includes
+from helpers import *
+from emulator import *
+
+
+# TODO \/
+
 
 # partials, lambda's and aliase
 dir_name =	os.path.dirname
