@@ -6,22 +6,52 @@ import json
 
 # custom includes
 from helpers import *
+from .software import Software
+
 
 __all__ = [
-	"Peripheral",
-	"Register",
-	"load_hardware_config",
-	"init_hardware",
-
-	"memory_invalid_hook",
-	"memory_read_hook",
-	"memory_write_hook",
-	"code_hook",
-	"interrupt_hook"
+	"Hardware"
 ]
 
 
 # types
+class Hardware:
+	def __init__(self, emu: Software, memory: dict, device: dict):
+		self.emu = emu
+		self.mem = memory
+		self.devs = []
+		for type, data in device.items():
+			base_cfg, regs = data
+			for label, base in base_cfg.items():
+				self.devs.append(Peripheral(emu, type, regs, label, base))
+
+	def reset_peripherals(self):
+		for peripheral in self.devs:
+			for offset, register in peripheral:
+				self.emu.mem_write(
+					peripheral.base + int(offset),
+					register.reset.to_bytes(4, byteorder="little")
+				)
+
+	def memory_read_hook(self, emu, access, address, size, value, user_data):
+		for periph in self.devs:
+			in_range, offset = periph.offset(address)
+			if not in_range: continue
+			periph.read(offset)
+			break
+		else:
+			print(f"read: {access}, {hex(address)}, {size}, {value}")
+
+	def memory_write_hook(self, emu, access, address, size, value, user_data):
+		for periph in self.devs:
+			in_range, offset = periph.offset(address)
+			if not in_range: continue
+			periph.write(offset, value)
+			break
+		else:
+			print(f"write: {access}, {hex(address)}, {size}, {value}")
+
+
 class Peripheral:
 	def __init__(self, emu, type: str, reg_map: dict, label: str, base: int) -> None:
 		self.emu = emu
@@ -113,64 +143,3 @@ class Register:
 					self.action(action)
 			elif val & s_mask:
 				self.action(action)
-
-
-# init
-def load_hardware_config(emu, cfg: dict) -> list[Peripheral]:
-	peripherals = []
-	for type, data in cfg.items():
-		base_cfg, regs = data
-		for label, base in base_cfg.items():
-			peripherals.append(Peripheral(emu, type, regs, label, base))
-	return peripherals
-
-
-def init_hardware(emu, hardware: list[Peripheral]) -> None:
-	for peripheral in hardware:
-		for offset, register in peripheral:
-			emu.mem_write(peripheral.base + int(offset), register.reset.to_bytes(4, byteorder="little"))
-
-
-# emulation hooks
-def memory_invalid_hook(emu, access, address, size, value, user_data):
-	print(f"invalid: {access}, {hex(address)}, {size}, {value}: {hex(value)}")
-	return False
-
-
-def memory_read_hook(emu, access, address, size, value, user_data):
-	peripherals: list[Peripheral] = user_data.dut.hardware
-	for periph in peripherals:
-		in_range, offset = periph.offset(address)
-		if not in_range: continue
-		periph.read(offset);
-		break
-	else:
-		print(f"read: {access}, {hex(address)}, {size}, {value}")
-
-
-def memory_write_hook(emu, access, address, size, value, user_data):
-	peripherals: list[Peripheral] = user_data.dut.hardware
-	for periph in peripherals:
-		in_range, offset = periph.offset(address)
-		if not in_range: continue
-		periph.write(offset, value);
-		break
-	else:
-		print(f"write: {access}, {hex(address)}, {size}, {value}")
-
-
-def code_hook(emu, address, size, user_data):
-	f_address = 0;
-	f_name = ""
-	for f_address, s, f_name in user_data.info.functions[::-1]:
-		if f_address < address: break
-	opcode = emu.mem_read(address, size)
-	mnemonics = user_data.asm.disasm(opcode, address)
-	for i in mnemonics:
-		print(f"{hex(i.address)} ({f_name} + {hex(address - f_address)}): {i.mnemonic}\t{i.op_str}")
-
-
-def interrupt_hook(emu, address, size, user_data):
-	print("interrupt")
-
-# TODO use config

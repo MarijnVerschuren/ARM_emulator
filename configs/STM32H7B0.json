@@ -1,46 +1,12 @@
 {
-    "EMU": {
-        "mem": {
-            "flash": [
-                "bank_0"
-            ],
-            "var": true,
-            "periph": true,
-            "ROM_table": true,
-            "load": 134217728
-        }
-    },
-    "DUT": {
-        "mem": {
-            "flash": {
-                "bank_0": 134217728,
-                "bank_0_size": 1048576,
-                "bank_1": 135266304,
-                "bank_1_size": 1048576
-            },
-            "var": {
-                "start": 603979776,
-                "size": 1048576
-            },
-            "periph": {
-                "start": 1073741824,
-                "size": 536870912,
-                "segments": {
-                    "APB1": 0,
-                    "AHB1": 131072,
-                    "APB2": 65536,
-                    "AHB2": 134348800,
-                    "APB3": 268435456,
-                    "AHB3": 301989888,
-                    "APB4": 402653184,
-                    "AHB4": 402784256
-                }
-            },
-            "ROM_table": {
-                "start": 3758096384,
-                "size": 1048576
-            }
-        },
-		"hardware": "STM32H7B0.json"
-    }
+	"config": {
+		"flash": [
+			"bank_0"
+		],
+		"var": true,
+		"periph": true,
+		"ROM_table": true,
+		"load": 134217728
+	},
+	"hardware": "STM32H7B0.json"
 }
