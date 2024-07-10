@@ -27,6 +27,7 @@ def exception_hook(type, value, traceback):
 
 # init
 def init_config() -> Software:
+	cwd = os.getcwd()
 	os.chdir(EMU_DIR)
 	configs = os.listdir("./configs")
 	if not configs: raise ValueError("no emulation config found")
@@ -41,6 +42,7 @@ def init_config() -> Software:
 		soft = load_emu(file, **EMU_ARG)
 		file.close()
 
+	os.chdir(cwd)
 	return soft
 def compile_env() -> str:
 	envs = os.popen("cat platformio.ini | grep env: | sed 's/.*env://' | sed 's/]//'").read()

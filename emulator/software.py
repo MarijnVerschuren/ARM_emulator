@@ -18,8 +18,8 @@ class Software(Uc):
 	def __init__(self, arch: int, mode: int, hardware: str, config: dict, load_emu: callable) -> None:
 		super(self.__class__, self).__init__(arch, mode)
 		self.asm = Cs(arch - 1, mode); self.asm.detail = True
-		with open(f"./dev_config/{hardware}.json", "r") as file:
-			self.hardware = load_emu(file, emu=self)
+		with open(f"./dev_configs/{hardware}", "r") as file:
+			self.hardware = load_emu(file, soft=self)
 		self.config = config
 
 		# map memory
@@ -60,10 +60,10 @@ class Software(Uc):
 	@staticmethod
 	def code_hook(emu, address, size, user_data):
 		f_address = 0; f_name = ""
-		for f_address, s, f_name in user_data.info.functions[::-1]:
+		for f_address, s, f_name in emu.info["functions"][::-1]:
 			if f_address < address: break
 		opcode = emu.mem_read(address, size)
-		mnemonics = user_data.asm.disasm(opcode, address)
+		mnemonics = emu.asm.disasm(opcode, address)
 		for i in mnemonics:
 			print(f"{hex(i.address)} ({f_name} + {hex(address - f_address)}): {i.mnemonic}\t{i.op_str}")
 

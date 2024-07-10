@@ -30,15 +30,11 @@ class emu_decoder(JSONDecoder):
 		super(self.__class__, self).__init__(*args, object_hook=self.default, **kwargs)
 
 	def default(self, data: dict) -> object:
-		if self.emu_arch and self.emu_mode:		return Software(self.emu_arch, self.emu_mode, **data, load_emu=load_emu)
-		if self.soft:							return Hardware(self.soft, **data)
-		raise ValueError(
-			"""
-			Missing arguments for:
-				Software(arch, mode, [JSON])
-				Hardware(soft, [JSON])
-			"""
-		)
+		try:
+			if self.emu_arch and self.emu_mode:	return Software(self.emu_arch, self.emu_mode, **data, load_emu=load_emu)
+			if self.soft:						return Hardware(self.soft, **data)
+		except: pass
+		return data
 
 
 # partials
