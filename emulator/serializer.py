@@ -11,11 +11,6 @@ __all__ = [
 ]
 
 
-# partials
-dump_emu = partial(load, cls=JSONEncoder)
-load_emu = partial(load, cls=JSONDecoder)
-
-
 # en/decoders
 class emu_encoder(JSONEncoder):
 	def default(self, obj: object) -> dict:
@@ -44,3 +39,8 @@ class emu_decoder(JSONDecoder):
 				Hardware(soft, [JSON])
 			"""
 		)
+
+
+# partials
+dump_emu = partial(load, cls=emu_encoder)
+load_emu = partial(load, cls=emu_decoder)
