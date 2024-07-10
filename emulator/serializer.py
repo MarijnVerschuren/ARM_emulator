@@ -23,11 +23,11 @@ class emu_encoder(JSONEncoder):
 
 class emu_decoder(JSONDecoder):
 	def __init__(self, *args, **kwargs):
-		self.orig_obj_hook = kwargs.pop("object_hook", None)
+		self.orig_obj_hook =	kwargs.pop("object_hook", None)
+		self.emu_arch =			kwargs.pop("arch", None)
+		self.emu_mode = 		kwargs.pop("mode", None)
+		self.soft =				kwargs.pop("soft", None)
 		super(self.__class__, self).__init__(*args, object_hook=self.default, **kwargs)
-		self.emu_arch = kwargs.get("arch", None)
-		self.emu_mode = kwargs.get("mode", None)
-		self.soft =		kwargs.get("soft", None)
 
 	def default(self, data: dict) -> object:
 		if self.emu_arch and self.emu_mode:		return Software(self.emu_arch, self.emu_mode, **data, load_emu=load_emu)

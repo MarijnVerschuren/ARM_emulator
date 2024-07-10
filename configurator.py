@@ -8,10 +8,6 @@ import json, sys, os
 
 # custom includes
 from helpers import *
-from emulator import *
-
-
-# TODO \/
 
 
 # partials, lambda's and aliase
@@ -35,6 +31,7 @@ def exception_hook(type, value, traceback) -> None:
 # helpers
 def pad(msg: str, count: int, char: str = " ") -> str:
 	return f"{msg}{char * (count - len(msg))}"
+
 def get_keys(data: CONTAINERS, path: str = "") -> list[tuple[str, str, type]]:
 	if not isinstance(data, dict): data = {i: x for i, x in enumerate(data)}
 	keys = [(x, path, type(y)) for x, y in data.items()]
@@ -43,6 +40,7 @@ def get_keys(data: CONTAINERS, path: str = "") -> list[tuple[str, str, type]]:
 		if t not in CONTAINERS: continue
 		keys += get_keys(data[key], f"{path}/{key}")
 	return keys
+
 def iter_path(config: dict, path: str) -> CONTAINERS:
 	if not path: return config
 	for p in path.split("/")[1:]:
@@ -62,6 +60,7 @@ def edit_field(config: dict, field: tuple[str, str, type]) -> dict:
 	print(parent[name])
 	config[name] = safe_input("new value: ", type)
 	return config
+
 def add_field(config: dict) -> dict:
 	valid =		[("[ROOT]", None, dict)] + [(x, y, z) for x, y, z in get_keys(config) if z in CONTAINERS]
 	choices =	[f"{path}/{name}" if [x for x, _, __ in valid].count(name) > 1 else name for name, path, __ in valid]
@@ -104,7 +103,6 @@ def add_field(config: dict) -> dict:
 	else: data = safe_input("field data: ", type)
 
 	add(data)
-
 	return config
 
 
@@ -115,6 +113,7 @@ def new_config() -> None:
 		json.dump({}, file)
 		file.close()
 	edit_config(config_name)
+
 def edit_config(config_name: str) -> None:
 	with open(f"{EMU_DIR}/configs/{config_name}", "r") as file:
 		config = json.load(file)
