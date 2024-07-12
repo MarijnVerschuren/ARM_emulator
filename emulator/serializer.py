@@ -38,5 +38,5 @@ class emu_decoder(JSONDecoder):
 
 
 # partials
-dump_emu = partial(load, cls=emu_encoder)
+dump_emu = partial(dump, cls=emu_encoder)
 load_emu = partial(load, cls=emu_decoder)

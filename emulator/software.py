@@ -3,6 +3,7 @@ from unicorn.unicorn_const import *
 from unicorn.arm_const import *
 from capstone import Cs
 from os import listdir
+from rich import print
 
 # custom includes
 from helpers import *
@@ -20,6 +21,7 @@ class Software(Uc):
 		self.asm = Cs(arch - 1, mode); self.asm.detail = True
 		with open(f"./dev_configs/{hardware}", "r") as file:
 			self.hardware = load_emu(file, soft=self)
+			file.close()
 		self.config = config
 
 		# map memory
@@ -44,6 +46,9 @@ class Software(Uc):
 		# write peripheral reset values
 		self.hardware.reset_peripherals()
 
+		# flags
+		self.single_step = False
+
 	def load_code(self, code: bytes, info: dict) -> None:
 		self.code = code; self.info = info
 		self.mem_write(self.hardware.mem["load"], code)
@@ -52,21 +57,32 @@ class Software(Uc):
 	def start(self) -> None:
 		self.emu_start(self.info["entry_point"], self.hardware.mem["load"] + len(self.code))
 
+	def read_regs(self) -> dict:
+		regs = {}
+		for i in range(13): regs |= {f"R{i}": hex(self.reg_read(UC_ARM_REG_R0 + i))}
+		return regs | {
+			"SP": hex(self.reg_read(UC_ARM_REG_SP)),
+			"LR": hex(self.reg_read(UC_ARM_REG_LR)),
+			"PC": hex(self.reg_read(UC_ARM_REG_PC))
+		}
+
+	# hooks
 	@staticmethod
-	def memory_invalid_hook(emu, access, address, size, value, user_data) -> bool:
+	def memory_invalid_hook(self, access, address, size, value, user_data) -> bool:
 		print(f"invalid: {access}, {hex(address)}, {size}, {value}: {hex(value)}")
 		return False
 
 	@staticmethod
-	def code_hook(emu, address, size, user_data):
+	def code_hook(self, address, size, user_data):
 		f_address = 0; f_name = ""
-		for f_address, s, f_name in emu.info["functions"][::-1]:
+		for f_address, s, f_name in self.info["functions"][::-1]:
 			if f_address < address: break
-		opcode = emu.mem_read(address, size)
-		mnemonics = emu.asm.disasm(opcode, address)
+		opcode = self.mem_read(address, size)
+		mnemonics = self.asm.disasm(opcode, address)
 		for i in mnemonics:
 			print(f"{hex(i.address)} ({f_name} + {hex(address - f_address)}): {i.mnemonic}\t{i.op_str}")
+		if self.single_step: print(self.read_regs(), end=""); input()
 
 	@staticmethod
-	def interrupt_hook(emu, address, size, user_data):
+	def interrupt_hook(self, address, size, user_data):
 		print("interrupt")
