@@ -16,12 +16,13 @@ __all__ = [
 
 # types
 class Software(Uc):
-	def __init__(self, arch: int, mode: int, hardware: str, config: dict, load_emu: callable) -> None:
+	def __init__(self, arch: int, mode: int, config: dict, hardware: str, load_emu: callable) -> None:
 		super(self.__class__, self).__init__(arch, mode)
 		self.asm = Cs(arch - 1, mode); self.asm.detail = True
-		with open(f"./dev_configs/{hardware}", "r") as file:
-			self.hardware = load_emu(file, soft=self)
+		with open(hardware, "r") as file:
+			factory = load_emu(file)
 			file.close()
+		self.hardware = factory(self)
 		self.config = config
 
 		# map memory
@@ -49,15 +50,12 @@ class Software(Uc):
 		# flags
 		self.single_step = False
 
-	def load_code(self, code: bytes, info: dict) -> None:
-		self.code = code; self.info = info
-		self.mem_write(self.hardware.mem["load"], code)
-		self.reg_write(UC_ARM_REG_SP, info["stack_pointer"])
+	# getters
+	def __str__(self) -> str:	return f"<[{self.__class__.__name__}], hardware: {self.hardware}>"
+	def __repr__(self) -> str:	return f"<[{self.__class__.__name__}], {repr(self.hardware)}>"
 
-	def start(self) -> None:
-		self.emu_start(self.info["entry_point"], self.hardware.mem["load"] + len(self.code))
-
-	def read_regs(self) -> dict:
+	@property
+	def regs(self) -> dict:
 		regs = {}
 		for i in range(13): regs |= {f"R{i}": hex(self.reg_read(UC_ARM_REG_R0 + i))}
 		return regs | {
@@ -65,6 +63,15 @@ class Software(Uc):
 			"LR": hex(self.reg_read(UC_ARM_REG_LR)),
 			"PC": hex(self.reg_read(UC_ARM_REG_PC))
 		}
+
+	# control
+	def load_code(self, code: bytes, info: dict) -> None:
+		self.code = code; self.info = info
+		self.mem_write(self.hardware.mem["load"], code)
+		self.reg_write(UC_ARM_REG_SP, info["stack_pointer"])
+
+	def start(self) -> None:
+		self.emu_start(self.info["entry_point"], self.hardware.mem["load"] + len(self.code))
 
 	# hooks
 	@staticmethod

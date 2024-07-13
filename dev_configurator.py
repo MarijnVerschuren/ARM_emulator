@@ -74,14 +74,13 @@ def load_register_map(doc_path: str) -> Table:
 class Software:
 	def __init__(self, config: dict, hardware: str) -> None:
 		self.config = config
-		self.hardware_orig = hardware
 		with open(f"{EMU_DIR}/dev_configs/{hardware}", "w") as file:
 			self.hardware = load(file)
 			file.close()
 
 	def __str__(self) -> str:	return f"<[{self.__class__.__name__}], config: {self.config}, hardware: {self.hardware}>"
 	def __repr__(self) -> str:	return str(self)
-	def dict(self) -> dict:	return {"config": self.config, "hardware": self.hardware_orig}
+	def dict(self) -> dict:	return {"config": self.config, "hardware": self.hardware}
 
 class Hardware:
 	def __init__(self, memory: dict, device: list[Peripheral]) -> None:
@@ -101,7 +100,6 @@ class Peripheral:
 	def __str__(self) -> str:	return f"<[{self.__class__.__name__}], type: {self.type}, base_cfg: {self.base_cfg}, regs: {self.regs}>"
 	def __repr__(self) -> str:	return str(self)
 	def dict(self) -> dict: return {"type": self.type, "base_cfg": self.base_cfg, "regs": self.regs}
-
 
 class Register:
 	def __init__(self, offset: int, label: str, bits: list[str], reset: int, triggers: list["Trigger"] = None) -> None:
@@ -147,7 +145,6 @@ class encoder(json.JSONEncoder):
 	def default(self, obj: object) -> dict:
 		try:	return obj.dict()
 		except:	return super().default(obj)
-
 
 class decoder(json.JSONDecoder):
 	def __init__(self, *args, **kwargs):
@@ -331,6 +328,7 @@ def add_emulation_rule(config_path: str) -> None:
 		file.close()
 
 
+# entry
 if __name__ == "__main__":
 	sys.excepthook = exception_hook
 

@@ -8,9 +8,10 @@ __all__ = [
 	"Hardware",
 	"Peripheral",
 	"Register",
+	"Trigger",
+	"Action",
 	# serializer.py
 	"load_emu",
-	"dump_emu",
 	# software.py
 	"Software"
 ]
