@@ -79,26 +79,28 @@ class Software:
 			self.hardware = load(file)
 			file.close()
 
-	def __dict__(self) -> dict:	return {"config": self.config, "hardware": self.hardware_orig}
+	def __str__(self) -> str:	return f"<[{self.__class__.__name__}], config: {self.config}, hardware: {self.hardware}>"
+	def __repr__(self) -> str:	return str(self)
+	def dict(self) -> dict:	return {"config": self.config, "hardware": self.hardware_orig}
 
 class Hardware:
-	def __init__(self, memory: dict, device: dict) -> None:
+	def __init__(self, memory: dict, device: list[Peripheral]) -> None:
 		self.memory = memory
-		self.device_orig = device
-		self.device = []
-		for type, data in device.items():
-			base_cfg, regs = data
-			self.device.append(Peripheral(type, regs, base_cfg))
+		self.device = device
 
-	def __dict__(self) -> dict: return {"memory": self.memory, "device": self.device}
+	def __str__(self) -> str:	return f"<[{self.__class__.__name__}], memory: {self.memory}, device: {self.device}>"
+	def __repr__(self) -> str:	return str(self)
+	def dict(self) -> dict:		return {"memory": self.memory, "device": self.device}
 
 class Peripheral:
-	def __init__(self, type: str, base_cfg: dict, regs: dict) -> None:
+	def __init__(self, type: str, base_cfg: dict, regs: list[Register]) -> None:
 		self.type = type
-		self.map = {int(offset): Register(int(offset), **reg) for offset, reg in regs.items()}
+		self.regs = regs
 		self.base_cfg = base_cfg
 
-	def __dict__(self) -> dict: return {"type": self.type, "base_cfg": self.base_cfg, "regs": self.map}
+	def __str__(self) -> str:	return f"<[{self.__class__.__name__}], type: {self.type}, base_cfg: {self.base_cfg}, regs: {self.regs}>"
+	def __repr__(self) -> str:	return str(self)
+	def dict(self) -> dict: return {"type": self.type, "base_cfg": self.base_cfg, "regs": self.regs}
 
 
 class Register:
@@ -109,7 +111,9 @@ class Register:
 		self.reset = reset
 		self.triggers = triggers or []
 
-	def __dict__(self) -> dict:
+	def __str__(self) -> str:	return f"<[{self.__class__.__name__}], label: {self.label}, offset: {self.offset}, bits: {self.bits}, reset: {self.reset}, triggers: {self.triggers}>"
+	def __repr__(self) -> str:	return str(self)
+	def dict(self) -> dict:
 		return {"offset": self.offset, "label": self.label, "bits": self.bits, "reset": self.reset} |\
 			   ({"triggers": self.triggers} if self.triggers else {})
 
@@ -119,7 +123,11 @@ class Trigger:
 		self.actions = actions
 		self.src = src		# bit, count, setting or any
 
-	def __dict__(self) -> dict: return {"actions": self.actions} | ({"src": self.src} if self.src else {})
+	@property
+	def type(self) -> str:		return ("write " + ("setting" if self.src[2] else "any")) if self.src else "read"
+	def __str__(self) -> str:	return f"<[{self.__class__.__name__}], trigger_t: {self.type}, actions: {self.actions}, src: {self.src}>"
+	def __repr__(self) -> str:	return str(self)
+	def dict(self) -> dict: return {"actions": self.actions} | ({"src": self.src} if self.src else {})
 
 class Action:
 	def __init__(self, src: int or tuple[str, int, int, int], dst: tuple[str, int, int, int]):
@@ -127,12 +135,17 @@ class Action:
 		self.src = src		# peripheral, offset, bit, count
 		self.dst = dst		# peripheral, offset, bit, count
 
-	def __dict__(self) -> dict: return {"src": self.src, "dst": self.dst}
+	@property
+	def type(self) -> str:		return "write" if isinstance(self.src, int) else "copy"
+	def __str__(self) -> str:	return f"<[{self.__class__.__name__}], action_t: {self.type}, src: {self.src}, dst: {self.dst}>"
+	def __repr__(self) -> str:	return str(self)
+	def dict(self) -> dict: return {"src": self.src, "dst": self.dst}
+
 
 # en/decoders
 class encoder(json.JSONEncoder):
 	def default(self, obj: object) -> dict:
-		try:	return dict(obj)
+		try:	return obj.dict()
 		except:	return super().default(obj)
 
 
@@ -172,11 +185,13 @@ def format_bits(bits: list) -> list:
 		prev := ''.join(list(filter(lambda x: x in set(printable), bit)))
 		if bit else prev for bit in bits
 	][::-1]
-def select_dev(config: dict) -> str:
+def select_dev(config: list[Peripheral], msg: str = "", new_dev: bool = True) -> Peripheral or str:
 	dev = prompt(Choice(
 		"device",
-		message="select device",
-		choices=["[NEW_DEVICE]"] + list(config.keys())  # TODO <<<<<<<<<<<<<<<<<<<<<<<<<<<<
+		message=f"select {msg} device",
+		**({"choices": ["[NEW_DEVICE]"]} if new_dev else {}),
+		format_choices=config,
+		format=lambda x: x.type
 	))
 	if dev == "[NEW_DEVICE]":
 		dev = safe_input("device name: ", str)
@@ -224,6 +239,7 @@ def save_register_map(table: Table, config_path: str) -> None:
 			value:	str = dat[1]
 			bits:	list = dat[2:]
 			if value in ["Reserved", "Reset value", "Register name"]: continue
+			value = value[value.find("_") + 1:]
 			bits = format_bits(bits)
 			reset = int(''.join([x if x == '1' else '0' for x in data[index + 1][2:]]), 2)
 			regs.append(Register(offset, value, bits, reset))
@@ -232,7 +248,14 @@ def save_register_map(table: Table, config_path: str) -> None:
 		config = load(file)
 		file.close()
 	dev = select_dev(config.device)
-	config.device[dev] = [get_base_cfg(dev), regs]
+	dev = dev if isinstance(dev, str) else dev.type
+	peripheral = Peripheral(dev, get_base_cfg(dev), regs)
+	for index, periph in enumerate(config.device):
+		if periph.type == dev:
+			config.device[index] = peripheral
+			break
+	else: config.device.append(peripheral)
+
 	with open(config_path, "w") as file:
 		try:	dump(config, file, indent=4)
 		except Exception as e:	print(e, config)
@@ -241,8 +264,9 @@ def set_default_value(config_path: str) -> None:
 	with open(config_path, "r") as file:
 		config = load(file)
 		file.close()
-	_, dev_config = config.device[select_dev(config.device)]
-	reg, bit = select_bit(dev_config, "source", True)
+
+	dev = select_dev(config.device, new_dev=False)
+	reg, bit = select_bit(dev.regs, "source", True)
 	count = reg.bits.count(bit)
 	offset = reg.bits.index(bit)
 
@@ -259,8 +283,9 @@ def add_emulation_rule(config_path: str) -> None:
 	with open(config_path, "r") as file:
 		config = load(file)
 		file.close()
-	_, dev_config = config.device[select_dev(config.device)]
-	s_reg, s_bit = select_bit(dev_config, "source")
+
+	s_dev = select_dev(config.device, new_dev=False)
+	s_reg, s_bit = select_bit(s_dev.regs, "source")
 	trigger = prompt(Choice(
 		"trigger",
 		message=f"trigger type",
@@ -283,19 +308,17 @@ def add_emulation_rule(config_path: str) -> None:
 			message=f"action type",
 			choices=["write", "copy"]
 		))
-		t_dev = select_dev(config.device)
-		_, t_dev_cfg = config.device[t_dev]
-		t_reg, t_bit = select_bit(t_dev_cfg, "target")
+		t_dev = select_dev(config.device, "target", new_dev=False)
+		t_reg, t_bit = select_bit(t_dev.regs, "target")
 		offset =	t_reg.bits.index(t_bit)
 		count =		t_reg.bits.count(t_bit)
-		t_act_dst = (t_dev, t_dev_cfg.index(t_reg), offset, count)
+		t_act_dst = (t_dev.type, t_dev.regs.index(t_reg), offset, count)
 		if act == "copy":
-			c_dev = select_dev(config.device)
-			_, c_dev_cfg = config.device[c_dev]
-			c_reg, c_bit = select_bit(c_dev_cfg, "copy source")
+			c_dev = select_dev(config.device, "copy source", new_dev=False)
+			c_reg, c_bit = select_bit(c_dev.regs, "copy source")
 			offset =	c_reg.bits.index(c_bit)
 			count =		c_reg.bits.count(c_bit)
-			t_act_src = (c_dev, c_dev_cfg.index(c_reg), offset, count)
+			t_act_src = (c_dev.type, c_dev.regs.index(c_reg), offset, count)
 		else:
 			t_act_src = safe_input(f"set {t_bit} to: ", int)
 		actions.append(Action(t_act_src, t_act_dst))
@@ -331,7 +354,8 @@ if __name__ == "__main__":
 		choices=[
 			"load register map",
 			"set default value",
-			"add emulation rule"
+			"add emulation rule",
+			"print"
 		]
 	))
 
@@ -348,3 +372,8 @@ if __name__ == "__main__":
 		set_default_value(f"{EMU_DIR}/dev_configs/{config}")
 	elif action == "add emulation rule":
 		add_emulation_rule(f"{EMU_DIR}/dev_configs/{config}")
+	else:
+		with open(f"{EMU_DIR}/dev_configs/{config}", "r") as file:
+			config = load(file)
+			file.close()
+		print(config)
