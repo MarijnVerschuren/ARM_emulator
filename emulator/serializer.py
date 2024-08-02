@@ -16,8 +16,8 @@ class Software_Factory:
 		self.config = config
 		self.hardware = hardware
 
-	def __call__(self, cfg_dir, arch: int, mode: int) -> Software:
-		return Software(arch, mode, self.config, f"{cfg_dir}/{self.hardware}", load_emu)
+	def __call__(self, cfg_dir, arch: int, mode: int, single_step: bool = False) -> Software:
+		return Software(arch, mode, self.config, f"{cfg_dir}/{self.hardware}", load_emu, single_step)
 	def __str__(self) -> str:	return f"<[{self.__class__.__name__}], config: {self.config}, hardware: {self.hardware}>"
 	def __repr__(self) -> str:	return str(self)
 

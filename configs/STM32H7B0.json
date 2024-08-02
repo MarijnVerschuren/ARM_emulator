@@ -5,7 +5,7 @@
 		],
 		"var": true,
 		"periph": true,
-		"ROM_table": true,
+		"core": true,
 		"load": 134217728
 	},
 	"hardware": "STM32H7B0.json"

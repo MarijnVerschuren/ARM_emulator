@@ -1,3 +1,7 @@
+# includes
+from threading import Thread
+import time
+
 # TUI includes
 from functools import cache
 from typing import Iterator
@@ -14,6 +18,50 @@ __all__ = [
 	"Trigger",
 	"Action"
 ]
+
+
+
+# peripheral types
+class Hardware_Thread(Thread):
+	def __init__(self, dev: "Peripheral", num: int = None) -> None:
+		super(Hardware_Thread, self).__init__(target=self.func, name=f"{self.__class__.__name__}{num or ''}", daemon=True)
+		self.dev = dev
+		self.start()
+
+	def func(self) -> None: pass
+
+
+class SysTick(Hardware_Thread):
+	CTRL =	0x00; LOAD =	0x04
+	VAL =	0x08; CALIB =	0x0C
+	def __init__(self, dev: "Peripheral") -> None:
+		super(SysTick, self).__init__(dev)
+
+	@property
+	def kernel(self) -> int:	return self.dev.emu.step
+	@property
+	def ctrl(self) -> int:		return self.dev[self.CTRL].value
+	@property
+	def load(self) -> int:		return self.dev[self.LOAD].value
+	@property
+	def val(self) -> int:		return self.dev[self.VAL].value
+	@property
+	def calib(self) -> int:		return self.dev[self.CALIB].value
+
+	def func(self) -> None:
+		last = self.kernel
+		while True:
+			if last == self.kernel:	continue
+			last = self.kernel
+			if not self.ctrl & 0b1:	continue
+
+			print("SYSTICK", hex(self.ctrl), hex(self.load))
+
+
+def get_thread(dev: "Peripheral") -> Hardware_Thread or None:
+	match dev.type:
+		case "SysTick":	return SysTick(dev)
+		case _:			return None
 
 
 # types
@@ -58,19 +106,20 @@ class Hardware:
 
 class Peripheral:
 	def __init__(self, emu, type: str, regs: list["Register"], label: str, base: int) -> None:
-		self.emu = emu
-		self.type = type
-		self.regs = regs
-		self.label = label
-		self.base = base
+		self.emu =		emu
+		self.type =		type
+		self.regs =		regs
+		self.label =	label
+		self.base =		base
+		self.thread =	get_thread(self)
 		self.i = 0
 
 	# getters
 	def __str__(self) -> str:	return f"<[{self.__class__.__name__}], type: {self.type}, label: {self.label}, base: {self.base}, regs: {self.regs}>"
 	def __repr__(self) -> str:	return f"<[{self.__class__.__name__}], {self.type}, {self.label}, {self.base}, {self.regs}>"
 
-	@cache
 	@property
+	@cache
 	def map_max(self) -> int: return max(self.regs, key=lambda x: x.offset).offset + 4
 	def offset(self, addr: int) -> tuple[bool, int]:
 		offset: int = addr - self.base
@@ -109,11 +158,12 @@ class Register:
 
 	def read(self, value: int) -> None:
 		self.update()
-		print(f"read {hex(value)} from {self.parent.label}->{self.label}, regs: {self.emu.read_regs()}")
+		print(f"read {hex(value)} from {self.parent.label}->{self.label}, regs: {self.emu.regs}")
 		for trigger in self.triggers: trigger.read_hook(self)
 
 	def write(self, value: int) -> None:
-		print(f"wrote {hex(value)} to {self.parent.label}->{self.label}, regs: {self.emu.read_regs()}")
+		self.value = value
+		print(f"wrote {hex(value)} to {self.parent.label}->{self.label}, regs: {self.emu.regs}")
 		for trigger in self.triggers: trigger.write_hook(self, value)
 
 
@@ -139,7 +189,7 @@ class Trigger:
 
 	def write_hook(self, reg: Register, value: int) -> None:
 		if not self.src:				return
-		o, c, s = self.src[2]
+		o, c, s = self.src
 		msk = ((2 ** c) - 1) << o
 		dat = value & msk
 		if not dat:						return
@@ -162,10 +212,12 @@ class Action:
 
 	# control
 	def __call__(self, *args, **kwargs) -> None:
-		d_reg = self.emu.find_register(*self.dst[:2])
-		o, c = self.dst[2:]
-		if isinstance(self.src, int): return d_reg.write(self.src << o)
-		s_reg = self.emu.find_register(*self.src[:2])
-		msk = ((2 ** c) - 1) << o
-		d_reg.write(s_reg.value & msk)
+		d_reg = self.emu.hardware.find_register(*self.dst[:2])
+		do, dc = self.dst[2:]; d_msk = ((2 ** dc) - 1) << do
+		d_reg.value &= ~d_msk
+		if isinstance(self.src, int): d_reg.value |= self.src << do; return
+		s_reg = self.emu.hardware.find_register(*self.src[:2])
+		so, sc = self.src[2:]; s_msk = ((2 ** sc) - 1) << so
+		d_reg.value |= ((s_reg.value & s_msk) >> so) << do
+
 

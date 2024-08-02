@@ -309,13 +309,13 @@ def add_emulation_rule(config_path: str) -> None:
 		t_reg, t_bit = select_bit(t_dev.regs, "target")
 		offset =	t_reg.bits.index(t_bit)
 		count =		t_reg.bits.count(t_bit)
-		t_act_dst = (t_dev.type, t_dev.regs.index(t_reg), offset, count)
+		t_act_dst = (t_dev.type, t_reg.offset, offset, count)
 		if act == "copy":
 			c_dev = select_dev(config.device, "copy source", new_dev=False)
 			c_reg, c_bit = select_bit(c_dev.regs, "copy source")
 			offset =	c_reg.bits.index(c_bit)
 			count =		c_reg.bits.count(c_bit)
-			t_act_src = (c_dev.type, c_dev.regs.index(c_reg), offset, count)
+			t_act_src = (c_dev.type, c_reg.offset, offset, count)
 		else:
 			t_act_src = safe_input(f"set {t_bit} to: ", int)
 		actions.append(Action(t_act_src, t_act_dst))
@@ -346,32 +346,29 @@ if __name__ == "__main__":
 			file.close()
 		config = config_name
 
-	action = prompt(Choice(
-		"action",
-		message="select configuration action",
-		choices=[
-			"load register map",
-			"set default value",
-			"add emulation rule",
-			"print"
-		]
-	))
-
-	if action == "load register map":
-		docs = [doc for doc in os.listdir(f"{EMU_DIR}/doc/src") if "soft" in doc]
-		doc = docs[0] if len(docs) == 1 else prompt(Choice(
-			"software_document",
-			message="select software document",
-			choices=docs
+	while True:
+		action = prompt(Choice(
+			"action",
+			message="select configuration action",
+			choices=[
+				"load register map",
+				"set default value",
+				"add emulation rule",
+				"quit"
+			]
 		))
-		table = load_register_map(f"{EMU_DIR}/doc/src/{doc}")
-		save_register_map(table, f"{EMU_DIR}/dev_configs/{config}")
-	elif action == "set default value":
-		set_default_value(f"{EMU_DIR}/dev_configs/{config}")
-	elif action == "add emulation rule":
-		add_emulation_rule(f"{EMU_DIR}/dev_configs/{config}")
-	else:
-		with open(f"{EMU_DIR}/dev_configs/{config}", "r") as file:
-			config = load(file)
-			file.close()
-		print(config)
+
+		if action == "load register map":
+			docs = [doc for doc in os.listdir(f"{EMU_DIR}/doc/src") if "soft" in doc]
+			doc = docs[0] if len(docs) == 1 else prompt(Choice(
+				"software_document",
+				message="select software document",
+				choices=docs
+			))
+			table = load_register_map(f"{EMU_DIR}/doc/src/{doc}")
+			save_register_map(table, f"{EMU_DIR}/dev_configs/{config}")
+		elif action == "set default value":
+			set_default_value(f"{EMU_DIR}/dev_configs/{config}")
+		elif action == "add emulation rule":
+			add_emulation_rule(f"{EMU_DIR}/dev_configs/{config}")
+		else: break

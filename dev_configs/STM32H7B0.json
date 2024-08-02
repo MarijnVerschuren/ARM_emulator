@@ -25,7 +25,7 @@
                 "AHB4": 402784256
             }
         },
-        "ROM_table": {
+        "core": {
             "start": 3758096384,
             "size": 1048576
         }
@@ -269,7 +269,32 @@
                         "Res.",
                         "Res."
                     ],
-                    "reset": 24576
+                    "reset": 24576,
+                    "triggers": [
+                        {
+                            "actions": [
+                                {
+                                    "src": [
+                                        "PWR",
+                                        24,
+                                        14,
+                                        2
+                                    ],
+                                    "dst": [
+                                        "PWR",
+                                        4,
+                                        14,
+                                        2
+                                    ]
+                                }
+                            ],
+                            "src": [
+                                14,
+                                2,
+                                null
+                            ]
+                        }
+                    ]
                 },
                 {
                     "offset": 32,
@@ -457,6 +482,157 @@
                                 1,
                                 null
                             ]
+                        },
+                        {
+                            "actions": [
+                                {
+                                    "src": [
+                                        "RCC",
+                                        0,
+                                        7,
+                                        1
+                                    ],
+                                    "dst": [
+                                        "RCC",
+                                        0,
+                                        8,
+                                        1
+                                    ]
+                                }
+                            ],
+                            "src": [
+                                7,
+                                1,
+                                null
+                            ]
+                        },
+                        {
+                            "actions": [
+                                {
+                                    "src": [
+                                        "RCC",
+                                        0,
+                                        12,
+                                        1
+                                    ],
+                                    "dst": [
+                                        "RCC",
+                                        0,
+                                        13,
+                                        1
+                                    ]
+                                }
+                            ],
+                            "src": [
+                                12,
+                                1,
+                                null
+                            ]
+                        },
+                        {
+                            "actions": [
+                                {
+                                    "src": [
+                                        "RCC",
+                                        0,
+                                        16,
+                                        1
+                                    ],
+                                    "dst": [
+                                        "RCC",
+                                        0,
+                                        17,
+                                        1
+                                    ]
+                                }
+                            ],
+                            "src": [
+                                16,
+                                1,
+                                null
+                            ]
+                        },
+                        {
+                            "actions": [
+                                {
+                                    "src": [
+                                        "RCC",
+                                        0,
+                                        24,
+                                        1
+                                    ],
+                                    "dst": [
+                                        "RCC",
+                                        0,
+                                        25,
+                                        1
+                                    ]
+                                }
+                            ],
+                            "src": [
+                                24,
+                                1,
+                                null
+                            ]
+                        },
+                        {
+                            "actions": [
+                                {
+                                    "src": [
+                                        "RCC",
+                                        0,
+                                        26,
+                                        1
+                                    ],
+                                    "dst": [
+                                        "RCC",
+                                        0,
+                                        27,
+                                        1
+                                    ]
+                                }
+                            ],
+                            "src": [
+                                26,
+                                1,
+                                null
+                            ]
+                        },
+                        {
+                            "actions": [
+                                {
+                                    "src": [
+                                        "RCC",
+                                        0,
+                                        28,
+                                        1
+                                    ],
+                                    "dst": [
+                                        "RCC",
+                                        0,
+                                        29,
+                                        1
+                                    ]
+                                }
+                            ],
+                            "src": [
+                                28,
+                                1,
+                                null
+                            ]
+                        },
+                        {
+                            "actions": [
+                                {
+                                    "src": 1,
+                                    "dst": [
+                                        "RCC",
+                                        0,
+                                        5,
+                                        1
+                                    ]
+                                }
+                            ]
                         }
                     ]
                 },
@@ -614,7 +790,32 @@
                         "MCO2SEL[2:0]",
                         "MCO2SEL[2:0]"
                     ],
-                    "reset": 0
+                    "reset": 0,
+                    "triggers": [
+                        {
+                            "actions": [
+                                {
+                                    "src": [
+                                        "RCC",
+                                        16,
+                                        0,
+                                        3
+                                    ],
+                                    "dst": [
+                                        "RCC",
+                                        16,
+                                        3,
+                                        3
+                                    ]
+                                }
+                            ],
+                            "src": [
+                                0,
+                                3,
+                                null
+                            ]
+                        }
+                    ]
                 },
                 {
                     "offset": 0,
@@ -1550,7 +1751,32 @@
                         "Res.",
                         "Res."
                     ],
-                    "reset": 0
+                    "reset": 0,
+                    "triggers": [
+                        {
+                            "actions": [
+                                {
+                                    "src": [
+                                        "RCC",
+                                        112,
+                                        0,
+                                        1
+                                    ],
+                                    "dst": [
+                                        "RCC",
+                                        112,
+                                        1,
+                                        1
+                                    ]
+                                }
+                            ],
+                            "src": [
+                                0,
+                                1,
+                                null
+                            ]
+                        }
+                    ]
                 },
                 {
                     "offset": 116,
@@ -1589,7 +1815,32 @@
                         "Res.",
                         "Res."
                     ],
-                    "reset": 0
+                    "reset": 0,
+                    "triggers": [
+                        {
+                            "actions": [
+                                {
+                                    "src": [
+                                        "RCC",
+                                        116,
+                                        0,
+                                        1
+                                    ],
+                                    "dst": [
+                                        "RCC",
+                                        116,
+                                        1,
+                                        1
+                                    ]
+                                }
+                            ],
+                            "src": [
+                                0,
+                                1,
+                                null
+                            ]
+                        }
+                    ]
                 },
                 {
                     "offset": 124,
@@ -2760,6 +3011,170 @@
                         "Res."
                     ],
                     "reset": 201451178
+                }
+            ]
+        },
+        {
+            "type": "SysTick",
+            "base_cfg": {
+                "SysTick": 3758153744
+            },
+            "regs": [
+                {
+                    "offset": 0,
+                    "label": "CTRL",
+                    "bits": [
+                        "ENABLE",
+                        "TICKINT",
+                        "CLKSRC",
+                        "Res.",
+                        "Res.",
+                        "Res.",
+                        "Res.",
+                        "Res.",
+                        "Res.",
+                        "Res.",
+                        "Res.",
+                        "Res.",
+                        "Res.",
+                        "Res.",
+                        "Res.",
+                        "Res.",
+                        "COUNT",
+                        "Res.",
+                        "Res.",
+                        "Res.",
+                        "Res.",
+                        "Res.",
+                        "Res.",
+                        "Res.",
+                        "Res.",
+                        "Res.",
+                        "Res.",
+                        "Res.",
+                        "Res.",
+                        "Res.",
+                        "Res.",
+                        "Res."
+                    ],
+                    "reset": 0
+                },
+                {
+                    "offset": 4,
+                    "label": "LOAD",
+                    "bits": [
+                        "LOAD",
+                        "LOAD",
+                        "LOAD",
+                        "LOAD",
+                        "LOAD",
+                        "LOAD",
+                        "LOAD",
+                        "LOAD",
+                        "LOAD",
+                        "LOAD",
+                        "LOAD",
+                        "LOAD",
+                        "LOAD",
+                        "LOAD",
+                        "LOAD",
+                        "LOAD",
+                        "LOAD",
+                        "LOAD",
+                        "LOAD",
+                        "LOAD",
+                        "LOAD",
+                        "LOAD",
+                        "LOAD",
+                        "LOAD",
+                        "Res.",
+                        "Res.",
+                        "Res.",
+                        "Res.",
+                        "Res.",
+                        "Res.",
+                        "Res.",
+                        "Res."
+                    ],
+                    "reset": 0
+                },
+                {
+                    "offset": 8,
+                    "label": "VAL",
+                    "bits": [
+                        "VAL",
+                        "VAL",
+                        "VAL",
+                        "VAL",
+                        "VAL",
+                        "VAL",
+                        "VAL",
+                        "VAL",
+                        "VAL",
+                        "VAL",
+                        "VAL",
+                        "VAL",
+                        "VAL",
+                        "VAL",
+                        "VAL",
+                        "VAL",
+                        "VAL",
+                        "VAL",
+                        "VAL",
+                        "VAL",
+                        "VAL",
+                        "VAL",
+                        "VAL",
+                        "VAL",
+                        "Res.",
+                        "Res.",
+                        "Res.",
+                        "Res.",
+                        "Res.",
+                        "Res.",
+                        "Res.",
+                        "Res."
+                    ],
+                    "reset": 0
+                },
+                {
+                    "offset": 12,
+                    "label": "CALIB",
+                    "bits": [
+                        "TENMS",
+                        "TENMS",
+                        "TENMS",
+                        "TENMS",
+                        "TENMS",
+                        "TENMS",
+                        "TENMS",
+                        "TENMS",
+                        "TENMS",
+                        "TENMS",
+                        "TENMS",
+                        "TENMS",
+                        "TENMS",
+                        "TENMS",
+                        "TENMS",
+                        "TENMS",
+                        "TENMS",
+                        "TENMS",
+                        "TENMS",
+                        "TENMS",
+                        "TENMS",
+                        "TENMS",
+                        "TENMS",
+                        "TENMS",
+                        "Res.",
+                        "Res.",
+                        "Res.",
+                        "Res.",
+                        "Res.",
+                        "Res.",
+                        "SKEW",
+                        "NOREF"
+                    ],
+                    "reset": 0
                 }
             ]
         }

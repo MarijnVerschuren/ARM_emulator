@@ -16,9 +16,18 @@ __all__ = [
 
 # types
 class Software(Uc):
-	def __init__(self, arch: int, mode: int, config: dict, hardware: str, load_emu: callable) -> None:
+	def __init__(self, arch: int, mode: int, config: dict, hardware: str, load_emu: callable, single_step: bool = False) -> None:
+		# unicorn
 		super(self.__class__, self).__init__(arch, mode)
 		self.asm = Cs(arch - 1, mode); self.asm.detail = True
+
+		# flags
+		self.single_step =	single_step
+
+		# variables
+		self.step =			None
+
+		# init component classes
 		with open(hardware, "r") as file:
 			factory = load_emu(file)
 			file.close()
@@ -27,10 +36,10 @@ class Software(Uc):
 
 		# map memory
 		dmem = self.hardware.mem
-		for bank in self.config["flash"]:	self.mem_map(dmem["flash"][bank],			dmem["flash"][f"{bank}_size"])	# memory map flash banks
-		if self.config["periph"]:			self.mem_map(dmem["periph"]["start"],		dmem["periph"]["size"])			# memory map peripheral space
-		if self.config["var"]:				self.mem_map(dmem["var"]["start"],			dmem["var"]["size"])			# memory map variable space
-		if self.config["ROM_table"]:		self.mem_map(dmem["ROM_table"]["start"],	dmem["ROM_table"]["size"])		# memory map ROM_table space
+		for bank in self.config["flash"]:	self.mem_map(dmem["flash"][bank],		dmem["flash"][f"{bank}_size"])	# memory map flash banks
+		if self.config["periph"]:			self.mem_map(dmem["periph"]["start"],	dmem["periph"]["size"])			# memory map peripheral space
+		if self.config["var"]:				self.mem_map(dmem["var"]["start"],		dmem["var"]["size"])			# memory map variable space
+		if self.config["core"]:				self.mem_map(dmem["core"]["start"],		dmem["core"]["size"])			# memory map core space
 
 		# add hooks
 		self.hook_add(
@@ -46,9 +55,6 @@ class Software(Uc):
 
 		# write peripheral reset values
 		self.hardware.reset_peripherals()
-
-		# flags
-		self.single_step = False
 
 	# getters
 	def __str__(self) -> str:	return f"<[{self.__class__.__name__}], hardware: {self.hardware}>"
@@ -71,6 +77,7 @@ class Software(Uc):
 		self.reg_write(UC_ARM_REG_SP, info["stack_pointer"])
 
 	def start(self) -> None:
+		self.step = 0
 		self.emu_start(self.info["entry_point"], self.hardware.mem["load"] + len(self.code))
 
 	# hooks
@@ -80,7 +87,11 @@ class Software(Uc):
 		return False
 
 	@staticmethod
-	def code_hook(self, address, size, user_data):
+	def code_hook(self: "Software", address, size, user_data):
+		# sync
+		if self.single_step: print(self.regs, end=""); input()
+		self.step += 1
+		# forensics
 		f_address = 0; f_name = ""
 		for f_address, s, f_name in self.info["functions"][::-1]:
 			if f_address < address: break
@@ -88,7 +99,6 @@ class Software(Uc):
 		mnemonics = self.asm.disasm(opcode, address)
 		for i in mnemonics:
 			print(f"{hex(i.address)} ({f_name} + {hex(address - f_address)}): {i.mnemonic}\t{i.op_str}")
-		if self.single_step: print(self.read_regs(), end=""); input()
 
 	@staticmethod
 	def interrupt_hook(self, address, size, user_data):

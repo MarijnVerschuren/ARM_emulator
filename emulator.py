@@ -26,7 +26,7 @@ def exception_hook(type, value, traceback):
 	else: sys.__excepthook__(type, value, traceback)
 
 # init
-def init_config() -> Software:
+def init_config(single_step: bool = False) -> Software:
 	configs = os.listdir(f"{EMU_DIR}/configs")
 	if not configs: raise ValueError("no emulation config found")
 	config = configs[0] if len(configs) <= 1 else \
@@ -39,7 +39,7 @@ def init_config() -> Software:
 	with open(f"{EMU_DIR}/configs/{config}", "r") as file:
 		factory = load_emu(file)
 		file.close()
-	return factory(f"{EMU_DIR}/dev_configs", **EMU_ARG)
+	return factory(f"{EMU_DIR}/dev_configs", single_step=single_step, **EMU_ARG)
 def compile_env() -> str:
 	envs = os.popen("cat platformio.ini | grep env: | sed 's/.*env://' | sed 's/]//'").read()
 	if not envs: raise ValueError("no platformio config found")
@@ -86,7 +86,7 @@ if __name__ == "__main__":
 	sys.excepthook = exception_hook
 
 	# init sequence
-	emu = init_config()
+	emu = init_config(True)
 	env = compile_env()
 	code, info = load_binary(env)
 
@@ -96,6 +96,7 @@ if __name__ == "__main__":
 	# start emulation
 	try:					emu.start()
 	except UcError as e:	print(e)
+	# TODO: step synchronization
 
 
 # ARM emulator should:
