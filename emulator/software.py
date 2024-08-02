@@ -2,7 +2,7 @@ from unicorn import Uc
 from unicorn.unicorn_const import *
 from unicorn.arm_const import *
 from capstone import Cs
-from pynput.keyboard import Key, Listener
+from pynput.keyboard import Key, Listener, Controller
 from rich import print
 from time import sleep
 
@@ -60,8 +60,9 @@ class Software(Uc):
 		# write peripheral reset values
 		self.hardware.reset_peripherals()
 
-		# UI thread
-		self.thread = None
+		# UI
+		self.UI_thread = None
+		self.keyboard = Controller()
 
 	# getters
 	def __str__(self) -> str:	return f"<[{self.__class__.__name__}], hardware: {self.hardware}>"
@@ -85,16 +86,15 @@ class Software(Uc):
 
 	def start(self) -> None:
 		self.step = 0
-		self.thread = Listener(on_press=self.UI)
-		self.emu_start(self.info["entry_point"], self.hardware.mem["load"] + len(self.code))
+		with Listener(on_press=self.UI) as self.UI_thread:
+			self.emu_start(self.info["entry_point"], self.hardware.mem["load"] + len(self.code))
 
 	def UI(self, key):  # UI thread
-		# TODO: start thread listening for key presses:
-		#   [space] -> toggle single_step
-		#   a -> open action dialog. here an action from the config can be chosen or made
-		if key == Key.space:	self.single_step = not self.single_step
-		if key == "A":			self.action_mode = True
-		print(key)
+		if key == Key.space:
+			self.single_step = not self.single_step					# toggle single_step
+			if not self.single_step: self.keyboard.press(Key.enter)	# automatically resume when toggled off
+		if key == "a": self.action_mode = True						# set action_mode state flag
+		# TODO: open action dialog. here an action from the config can be chosen or made
 
 	# hooks
 	@staticmethod
@@ -113,13 +113,14 @@ class Software(Uc):
 			if f_address < address: break
 		opcode = self.mem_read(address, size)
 		mnemonics = self.asm.disasm(opcode, address)
+		d_address = address - f_address
 		for i in mnemonics:
-			print(f"{hex(i.address)} ({f_name} + {hex(address - f_address)}): {i.mnemonic}\t{i.op_str}")
+			print(f"{hex(i.address)} ({f_name} + {hex(d_address)}): {i.mnemonic}\t{i.op_str}")
 		# breakpoint logic
 		for bp in self.breakpoints:
 			self.single_step |= (
-				(bp == f_name and (address - f_address) < 4)	# enter function
-				or bp == address								# at address
+				(bp == f_name and d_address < 4)	# enter function
+				or bp == address					# at address
 			)
 
 	@staticmethod

@@ -86,7 +86,7 @@ if __name__ == "__main__":
 	sys.excepthook = exception_hook
 
 	# init sequence
-	emu = init_config(True)
+	emu = init_config(False)
 	env = compile_env()
 	code, info = load_binary(env)
 
