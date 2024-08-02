@@ -2,7 +2,8 @@ from unicorn import Uc
 from unicorn.unicorn_const import *
 from unicorn.arm_const import *
 from capstone import Cs
-from os import listdir
+from threading import Thread
+from keyboard import is_pressed
 from rich import print
 
 # custom includes
@@ -23,6 +24,7 @@ class Software(Uc):
 
 		# flags
 		self.single_step =	single_step
+		self.action_mode =	False
 
 		# variables
 		self.step =			None
@@ -58,6 +60,9 @@ class Software(Uc):
 		# write peripheral reset values
 		self.hardware.reset_peripherals()
 
+		# UI thread
+		self.thread = Thread(target=self.UI, name="emulator UI", daemon=True)
+
 	# getters
 	def __str__(self) -> str:	return f"<[{self.__class__.__name__}], hardware: {self.hardware}>"
 	def __repr__(self) -> str:	return f"<[{self.__class__.__name__}], {repr(self.hardware)}>"
@@ -79,13 +84,18 @@ class Software(Uc):
 		self.reg_write(UC_ARM_REG_SP, info["stack_pointer"])
 
 	def start(self) -> None:
+		self.step = 0
+		self.thread.start()
+		self.emu_start(self.info["entry_point"], self.hardware.mem["load"] + len(self.code))
+
+	def UI(self):  # UI thread
 		# TODO: start thread listening for key presses:
 		#   [space] -> toggle single_step
 		#   a -> open action dialog. here an action from the config can be chosen or made
-		print(self.actions)
-		input()
-		self.step = 0
-		self.emu_start(self.info["entry_point"], self.hardware.mem["load"] + len(self.code))
+		while True:
+			if is_pressed("space"):	self.single_step = not self.single_step
+			if is_pressed("a"):		self.action_mode = True
+			# TODO: action mode!!!!!!
 
 	# hooks
 	@staticmethod
@@ -108,9 +118,9 @@ class Software(Uc):
 			print(f"{hex(i.address)} ({f_name} + {hex(address - f_address)}): {i.mnemonic}\t{i.op_str}")
 		# breakpoint logic
 		for bp in self.breakpoints:
-			self.single_step = (
-				(bp == f_name and f_address == address)		# enter function
-				or bp == address							# at address
+			self.single_step |= (
+				(bp == f_name and (address - f_address) < 4)	# enter function
+				or bp == address								# at address
 			)
 
 	@staticmethod

@@ -11,8 +11,6 @@
 	"breakpoints": [
 		"sys_clock_init"
 	],
-	"actions": [
-	
-	],
+	"actions": [],
 	"hardware": "STM32H7B0.json"
 }
