@@ -12,12 +12,14 @@ __all__ = [
 
 # factory structures
 class Software_Factory:
-	def __init__(self, config: dict, hardware: str) -> None:
+	def __init__(self, config: dict, actions: list, breakpoints: list, hardware: str) -> None:
 		self.config = config
+		self.actions = actions
+		self.breakpoints = breakpoints
 		self.hardware = hardware
 
 	def __call__(self, cfg_dir, arch: int, mode: int, single_step: bool = False) -> Software:
-		return Software(arch, mode, self.config, f"{cfg_dir}/{self.hardware}", load_emu, single_step)
+		return Software(arch, mode, self.config, self.actions, self.breakpoints, f"{cfg_dir}/{self.hardware}", load_emu, single_step)
 	def __str__(self) -> str:	return f"<[{self.__class__.__name__}], config: {self.config}, hardware: {self.hardware}>"
 	def __repr__(self) -> str:	return str(self)
 

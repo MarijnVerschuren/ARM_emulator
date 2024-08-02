@@ -16,7 +16,7 @@ __all__ = [
 
 # types
 class Software(Uc):
-	def __init__(self, arch: int, mode: int, config: dict, hardware: str, load_emu: callable, single_step: bool = False) -> None:
+	def __init__(self, arch: int, mode: int, config: dict, actions: list, breakpoints: list, hardware: str, load_emu: callable, single_step: bool = False) -> None:
 		# unicorn
 		super(self.__class__, self).__init__(arch, mode)
 		self.asm = Cs(arch - 1, mode); self.asm.detail = True
@@ -32,7 +32,9 @@ class Software(Uc):
 			factory = load_emu(file)
 			file.close()
 		self.hardware = factory(self)
-		self.config = config
+		self.config =		config
+		self.actions =		actions
+		self.breakpoints =	breakpoints
 
 		# map memory
 		dmem = self.hardware.mem
@@ -77,6 +79,11 @@ class Software(Uc):
 		self.reg_write(UC_ARM_REG_SP, info["stack_pointer"])
 
 	def start(self) -> None:
+		# TODO: start thread listening for key presses:
+		#   [space] -> toggle single_step
+		#   a -> open action dialog. here an action from the config can be chosen or made
+		print(self.actions)
+		input()
 		self.step = 0
 		self.emu_start(self.info["entry_point"], self.hardware.mem["load"] + len(self.code))
 
@@ -99,6 +106,12 @@ class Software(Uc):
 		mnemonics = self.asm.disasm(opcode, address)
 		for i in mnemonics:
 			print(f"{hex(i.address)} ({f_name} + {hex(address - f_address)}): {i.mnemonic}\t{i.op_str}")
+		# breakpoint logic
+		for bp in self.breakpoints:
+			self.single_step = (
+				(bp == f_name and f_address == address)		# enter function
+				or bp == address							# at address
+			)
 
 	@staticmethod
 	def interrupt_hook(self, address, size, user_data):

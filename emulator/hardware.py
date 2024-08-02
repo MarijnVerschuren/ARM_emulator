@@ -58,10 +58,12 @@ class SysTick(Hardware_Thread):
 			print("SYSTICK", hex(self.ctrl), hex(self.load))
 
 
+
 def get_thread(dev: "Peripheral") -> Hardware_Thread or None:
 	match dev.type:
 		case "SysTick":	return SysTick(dev)
 		case _:			return None
+
 
 
 # types
