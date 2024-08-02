@@ -89,11 +89,11 @@ class Software(Uc):
 		with Listener(on_press=self.UI) as self.UI_thread:
 			self.emu_start(self.info["entry_point"], self.hardware.mem["load"] + len(self.code))
 
-	def UI(self, key):  # UI thread
+	def UI(self, key):  # UI callback
 		if key == Key.space:
-			self.single_step = not self.single_step					# toggle single_step
-			if not self.single_step: self.keyboard.press(Key.enter)	# automatically resume when toggled off
-		if key == "a": self.action_mode = True						# set action_mode state flag
+			self.single_step = not self.single_step				# toggle single_step
+			if not self.single_step: self.keyboard.type("\n")	# automatically resume when toggled off
+		if key == "a": self.action_mode = True					# set action_mode state flag
 		# TODO: open action dialog. here an action from the config can be chosen or made
 
 	# hooks
