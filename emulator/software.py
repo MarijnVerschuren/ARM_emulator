@@ -2,9 +2,9 @@ from unicorn import Uc
 from unicorn.unicorn_const import *
 from unicorn.arm_const import *
 from capstone import Cs
-from threading import Thread
-from keyboard import is_pressed
+from pynput.keyboard import Key, Listener
 from rich import print
+from time import sleep
 
 # custom includes
 from helpers import *
@@ -61,7 +61,7 @@ class Software(Uc):
 		self.hardware.reset_peripherals()
 
 		# UI thread
-		self.thread = Thread(target=self.UI, name="emulator UI", daemon=True)
+		self.thread = None
 
 	# getters
 	def __str__(self) -> str:	return f"<[{self.__class__.__name__}], hardware: {self.hardware}>"
@@ -85,17 +85,16 @@ class Software(Uc):
 
 	def start(self) -> None:
 		self.step = 0
-		self.thread.start()
+		self.thread = Listener(on_press=self.UI)
 		self.emu_start(self.info["entry_point"], self.hardware.mem["load"] + len(self.code))
 
-	def UI(self):  # UI thread
+	def UI(self, key):  # UI thread
 		# TODO: start thread listening for key presses:
 		#   [space] -> toggle single_step
 		#   a -> open action dialog. here an action from the config can be chosen or made
-		while True:
-			if is_pressed("space"):	self.single_step = not self.single_step
-			if is_pressed("a"):		self.action_mode = True
-			# TODO: action mode!!!!!!
+		if key == Key.space:	self.single_step = not self.single_step
+		if key == "A":			self.action_mode = True
+		print(key)
 
 	# hooks
 	@staticmethod
