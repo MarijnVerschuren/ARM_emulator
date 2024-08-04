@@ -26,6 +26,7 @@ class Hardware_Thread(Thread):
 	def __init__(self, dev: "Peripheral", num: int = None) -> None:
 		super(Hardware_Thread, self).__init__(target=self.func, name=f"{self.__class__.__name__}{num or ''}", daemon=False)
 		self.dev = dev
+		self.interrupt = self.dev.emu.interrupt
 		self.start()
 
 	def func(self) -> None: pass
@@ -34,6 +35,7 @@ class Hardware_Thread(Thread):
 class SysTick(Hardware_Thread):
 	CTRL =	0x00; LOAD =	0x04
 	VAL =	0x08; CALIB =	0x0C
+	SysTick_IRQn = -1
 	def __init__(self, dev: "Peripheral") -> None:
 		super(SysTick, self).__init__(dev)
 
@@ -45,9 +47,9 @@ class SysTick(Hardware_Thread):
 	def ctrl(self) -> tuple[int, int, int]:
 		val = self.dev[self.CTRL].data.value
 		return (
-			(val << 0) & 0b1,
-			(val << 1) & 0b1,
-			(val << 2) & 0b1,
+			(val >> 0) & 0b1,
+			(val >> 1) & 0b1,
+			(val >> 2) & 0b1,
 		)
 	@property
 	def load(self) -> int:		return self.dev[self.LOAD].data.value
@@ -68,9 +70,9 @@ class SysTick(Hardware_Thread):
 			print("SYSTICK | t, thresh: ", self.kernel - last_tick, ticks)
 			if self.kernel - last_tick <= ticks:	continue
 			last_tick = self.kernel
-			print("SYSTICKed")
+			print("SYSTICKed, intr:", ie)
 			if not ie:								continue
-			# TODO: call interrupt, how??
+			self.interrupt(self.SysTick_IRQn)
 
 
 

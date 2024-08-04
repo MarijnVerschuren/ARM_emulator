@@ -98,6 +98,17 @@ class Software(Uc):
 		if key == "a":
 			pass # TODO: open action dialog. here an action from the config can be chosen or made
 
+	def interrupt(self, IRQn: int) -> None:
+		print(IRQn)
+		ctx = self.context_save()
+		print(bytes(ctx), ctx, ctx.__dict__)
+		# TODO:
+		#  1. halt emu
+		#  2. run interrupt code
+		#  3. restore context
+		#  4. resume emu
+		pass
+
 	# hooks
 	@staticmethod
 	def memory_invalid_hook(self, access, address, size, value, user_data) -> bool:
