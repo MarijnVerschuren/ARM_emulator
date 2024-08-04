@@ -3,6 +3,7 @@ from unicorn.unicorn_const import *
 from unicorn.arm_const import *
 from capstone import Cs
 from pynput.keyboard import Key, Listener, Controller
+from multiprocessing import Process, Manager
 from rich import print
 from time import sleep
 
@@ -22,21 +23,21 @@ class Software(Uc):
 		super(self.__class__, self).__init__(arch, mode)
 		self.asm = Cs(arch - 1, mode); self.asm.detail = True
 
-		# flags
-		self.single_step =	single_step
-		self.action_mode =	False
-
-		# variables
-		self.step =			None
+		# flags and variables
+		self.manager = Manager()		# multi core variable manager
+		self.single_step =	self.manager.Value("single_step",	single_step)
+		self.next_step =	self.manager.Value("next_step",		False)
+		self.step =			self.manager.Value("step",			0)
 
 		# init component classes
 		with open(hardware, "r") as file:
 			factory = load_emu(file)
 			file.close()
 		self.hardware = factory(self)
-		self.config =		config
-		self.actions =		actions
-		self.breakpoints =	breakpoints
+		self.config =			config
+		self.actions =			actions
+		self.breakpoints =		breakpoints
+		self.hardware_accel =	self.config["accel"]
 
 		# map memory
 		dmem = self.hardware.mem
@@ -65,8 +66,8 @@ class Software(Uc):
 		self.keyboard = Controller()
 
 	# getters
-	def __str__(self) -> str:	return f"<[{self.__class__.__name__}], hardware: {self.hardware}>"
-	def __repr__(self) -> str:	return f"<[{self.__class__.__name__}], {repr(self.hardware)}>"
+	def __str__(self) -> str:		return f"<[{self.__class__.__name__}], hardware: {self.hardware}>"
+	def __repr__(self) -> str:		return f"<[{self.__class__.__name__}], {repr(self.hardware)}>"
 
 	@property
 	def regs(self) -> dict:
@@ -85,16 +86,17 @@ class Software(Uc):
 		self.reg_write(UC_ARM_REG_SP, info["stack_pointer"])
 
 	def start(self) -> None:
-		self.step = 0
+		self.step.value = 0
+
+		start = Process(target=self.emu_start, args=(self.info["entry_point"], self.hardware.mem["load"] + len(self.code)))
 		with Listener(on_press=self.UI) as self.UI_thread:
-			self.emu_start(self.info["entry_point"], self.hardware.mem["load"] + len(self.code))
+			start.start(); start.join()
 
 	def UI(self, key):  # UI callback
-		if key == Key.space:
-			self.single_step = not self.single_step				# toggle single_step
-			if not self.single_step: self.keyboard.type("\n")	# automatically resume when toggled off
-		if key == "a": self.action_mode = True					# set action_mode state flag
-		# TODO: open action dialog. here an action from the config can be chosen or made
+		if key == Key.space:	self.single_step.value = not self.single_step.value		# toggle single_step
+		if key == Key.enter and self.single_step.value:	self.next_step.value = True		# set next_step if single_step is active
+		if key == "a":
+			pass # TODO: open action dialog. here an action from the config can be chosen or made
 
 	# hooks
 	@staticmethod
@@ -105,8 +107,11 @@ class Software(Uc):
 	@staticmethod
 	def code_hook(self: "Software", address, size, user_data):
 		# sync
-		if self.single_step: print(self.regs, end=""); input()
-		self.step += 1
+		if self.single_step.value:
+			print(self.regs, end="")
+			while not self.next_step.value and self.single_step.value: pass
+			self.next_step.value = False
+		self.step.value += 1
 		# forensics
 		f_address = 0; f_name = ""
 		for f_address, s, f_name in self.info["functions"][::-1]:
@@ -118,8 +123,8 @@ class Software(Uc):
 			print(f"{hex(i.address)} ({f_name} + {hex(d_address)}): {i.mnemonic}\t{i.op_str}")
 		# breakpoint logic
 		for bp in self.breakpoints:
-			self.single_step |= (
-				(bp == f_name and d_address < 4)	# enter function
+			self.single_step.value |= (
+				(bp == f_name and d_address < 2)	# enter function
 				or bp == address					# at address
 			)
 

@@ -6,7 +6,8 @@
 		"var": true,
 		"periph": true,
 		"core": true,
-		"load": 134217728
+		"load": 134217728,
+		"accel": 22400000
 	},
 	"breakpoints": [
 		"sys_clock_init"

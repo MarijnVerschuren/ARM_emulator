@@ -24,7 +24,7 @@ __all__ = [
 # peripheral types
 class Hardware_Thread(Thread):
 	def __init__(self, dev: "Peripheral", num: int = None) -> None:
-		super(Hardware_Thread, self).__init__(target=self.func, name=f"{self.__class__.__name__}{num or ''}", daemon=True)
+		super(Hardware_Thread, self).__init__(target=self.func, name=f"{self.__class__.__name__}{num or ''}", daemon=False)
 		self.dev = dev
 		self.start()
 
@@ -38,24 +38,39 @@ class SysTick(Hardware_Thread):
 		super(SysTick, self).__init__(dev)
 
 	@property
-	def kernel(self) -> int:	return self.dev.emu.step
+	def kernel(self) -> int:	return self.dev.emu.step.value
 	@property
-	def ctrl(self) -> int:		return self.dev[self.CTRL].value
+	def accel(self) -> int:		return self.dev.emu.hardware_accel
 	@property
-	def load(self) -> int:		return self.dev[self.LOAD].value
+	def ctrl(self) -> tuple[int, int, int]:
+		val = self.dev[self.CTRL].data.value
+		return (
+			(val << 0) & 0b1,
+			(val << 1) & 0b1,
+			(val << 2) & 0b1,
+		)
 	@property
-	def val(self) -> int:		return self.dev[self.VAL].value
+	def load(self) -> int:		return self.dev[self.LOAD].data.value
 	@property
-	def calib(self) -> int:		return self.dev[self.CALIB].value
+	def val(self) -> int:		return self.dev[self.VAL].data.value
+	@property
+	def calib(self) -> int:		return self.dev[self.CALIB].data.value
 
 	def func(self) -> None:
-		last = self.kernel
+		last_check = self.kernel
+		last_tick = 0
 		while True:
-			if last == self.kernel:	continue
-			last = self.kernel
-			if not self.ctrl & 0b1:	continue
-
-			print("SYSTICK", hex(self.ctrl), hex(self.load))
+			if last_check == self.kernel:			continue
+			last_check = self.kernel
+			en, ie, src = self.ctrl
+			if not en:								continue
+			ticks = int((self.load - 1) * 2000 * (8 - (7 * src)) / self.accel)
+			print("SYSTICK | t, thresh: ", self.kernel - last_tick, ticks)
+			if self.kernel - last_tick <= ticks:	continue
+			last_tick = self.kernel
+			print("SYSTICKed")
+			if not ie:								continue
+			# TODO: call interrupt, how??
 
 
 
@@ -148,7 +163,7 @@ class Register:
 		self.triggers = triggers
 
 		self.ptr = parent.base + offset
-		self.value = reset
+		self.data = self.emu.manager.Value(f"{self.label}@{self.offset}->value", reset)
 
 	# getters
 	def __str__(self) -> str:	return f"<[{self.__class__.__name__}], offset: {self.offset}, label: {self.label}, bits: {self.bits}, reset: {self.reset}, triggers: {self.triggers}>"
@@ -156,7 +171,7 @@ class Register:
 
 	# control
 	def update(self) -> None:
-		self.emu.mem_write(self.ptr, self.value.to_bytes(4, byteorder="little"))
+		self.emu.mem_write(self.ptr, self.data.value.to_bytes(4, byteorder="little"))
 
 	def read(self, value: int) -> None:
 		self.update()
@@ -164,7 +179,7 @@ class Register:
 		for trigger in self.triggers: trigger.read_hook(self)
 
 	def write(self, value: int) -> None:
-		self.value = value
+		self.data.value = value
 		print(f"wrote {hex(value)} to {self.parent.label}->{self.label}, regs: {self.emu.regs}")
 		for trigger in self.triggers: trigger.write_hook(self, value)
 
@@ -216,10 +231,10 @@ class Action:
 	def __call__(self, *args, **kwargs) -> None:
 		d_reg = self.emu.hardware.find_register(*self.dst[:2])
 		do, dc = self.dst[2:]; d_msk = ((2 ** dc) - 1) << do
-		d_reg.value &= ~d_msk
-		if isinstance(self.src, int): d_reg.value |= self.src << do; return
+		d_reg.data.value &= ~d_msk
+		if isinstance(self.src, int): d_reg.data.value |= self.src << do; return
 		s_reg = self.emu.hardware.find_register(*self.src[:2])
 		so, sc = self.src[2:]; s_msk = ((2 ** sc) - 1) << so
-		d_reg.value |= ((s_reg.value & s_msk) >> so) << do
+		d_reg.data.value |= ((s_reg.data.value & s_msk) >> so) << do
 
 
