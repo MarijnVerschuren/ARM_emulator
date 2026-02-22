@@ -10,7 +10,8 @@
 		"accel": 2240000
 	},
 	"breakpoints": [
-		"sys_clock_init"
+		"sys_clock_init",
+		"SysTick_Handler"
 	],
 	"actions": [],
 	"hardware": "STM32H7B0.json"

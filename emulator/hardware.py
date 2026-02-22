@@ -26,7 +26,7 @@ class Hardware_Thread(Thread):
 	def __init__(self, dev: "Peripheral", num: int = None) -> None:
 		super(Hardware_Thread, self).__init__(target=self.func, name=f"{self.__class__.__name__}{num or ''}", daemon=False)
 		self.dev = dev
-		self.interrupt = self.dev.emu.interrupt
+		self.interrupt = self.dev.emu.IRQ_ctrl.trigger
 		self.start()
 
 	def func(self) -> None: pass
@@ -66,11 +66,9 @@ class SysTick(Hardware_Thread):
 			last_check = self.kernel
 			en, ie, src = self.ctrl
 			if not en:								last_tick = self.kernel; continue  # TODO: remove self.kernel read if possible
-			ticks = int((self.load - 1) * 2000 * (8 - (7 * src)))# / self.accel)
-			print("SYSTICK | t, thresh: ", self.kernel - last_tick, ticks)
+			ticks = int((self.load - 1) * 2000 * (8 - (7 * src)) / self.accel)
 			if self.kernel - last_tick <= ticks:	continue
 			last_tick = self.kernel
-			print("SYSTICKed, intr:", ie)
 			if not ie:								continue
 			self.interrupt(self.SysTick_IRQn)
 

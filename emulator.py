@@ -135,6 +135,8 @@ if __name__ == "__main__":
 	code, info = load_binary(env)
 
 	# load code
+	print(info)
+	input()
 	emu.load_code(code, info)
 
 	# start emulation
