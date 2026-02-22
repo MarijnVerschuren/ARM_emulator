@@ -7,7 +7,7 @@
 		"periph": true,
 		"core": true,
 		"load": 134217728,
-		"accel": 22400000
+		"accel": 2240000
 	},
 	"breakpoints": [
 		"sys_clock_init"

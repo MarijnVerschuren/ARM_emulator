@@ -65,8 +65,8 @@ class SysTick(Hardware_Thread):
 			if last_check == self.kernel:			continue
 			last_check = self.kernel
 			en, ie, src = self.ctrl
-			if not en:								continue
-			ticks = int((self.load - 1) * 2000 * (8 - (7 * src)) / self.accel)
+			if not en:								last_tick = self.kernel; continue  # TODO: remove self.kernel read if possible
+			ticks = int((self.load - 1) * 2000 * (8 - (7 * src)))# / self.accel)
 			print("SYSTICK | t, thresh: ", self.kernel - last_tick, ticks)
 			if self.kernel - last_tick <= ticks:	continue
 			last_tick = self.kernel
@@ -103,7 +103,8 @@ class Hardware:
 		for periph in self.dev:
 			if periph.label != peripheral: continue
 			return periph[offset]
-
+		return None
+	
 	# hooks
 	def memory_read_hook(self, emu, access, address, size, value, user_data):
 		value = int.from_bytes(emu.mem_read(address, size), "little")
@@ -113,6 +114,7 @@ class Hardware:
 			periph.read(offset, value)
 			break
 		else: print(f"read {hex(value)} from {hex(address)}, size: {size}, access:{access}")
+	
 	def memory_write_hook(self, emu, access, address, size, value, user_data):
 		emu.mem_write(address, value.to_bytes(size, byteorder="little"))
 		for periph in self.dev:
@@ -143,9 +145,12 @@ class Peripheral:
 	def offset(self, addr: int) -> tuple[bool, int]:
 		offset: int = addr - self.base
 		return 0 <= offset < self.map_max, offset
-	def __getitem__(self, offset: int) -> "Register":
+	
+	def __getitem__(self, offset: int) -> "Register" or None:
 		for reg in self.regs:
 			if reg.offset == offset: return reg
+		return None
+	
 	def __iter__(self) -> Iterator["Register"]:
 		return iter(self.regs)
 

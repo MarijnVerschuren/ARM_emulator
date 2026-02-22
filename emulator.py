@@ -25,6 +25,7 @@ def exception_hook(type, value, traceback):
 		sys.exit(0)
 	else: sys.__excepthook__(type, value, traceback)
 
+
 # init
 def init_config(single_step: bool = False) -> Software:
 	configs = os.listdir(f"{EMU_DIR}/configs")
@@ -39,13 +40,16 @@ def init_config(single_step: bool = False) -> Software:
 	with open(f"{EMU_DIR}/configs/{config}", "r") as file:
 		factory = load_emu(file)
 		file.close()
+	
 	return factory(f"{EMU_DIR}/dev_configs", single_step=single_step, **EMU_ARG)
-def compile_env() -> str:
+
+
+def compile_pio_env() -> str:
 	envs = os.popen("cat platformio.ini | grep env: | sed 's/.*env://' | sed 's/]//'").read()
 	if not envs: raise ValueError("no platformio config found")
 
 	envs = envs.split("\n")[:-1]
-	env = envs[0] if len(envs) <= 1 else \
+	env = envs[0] if len(envs) == 1 else \
 		prompt(Choice(
 			"build_config",
 			message="select build config",
@@ -55,7 +59,46 @@ def compile_env() -> str:
 	os.system(f"pio debug -e {env}")
 	os.system(f"cp ./.pio/build/{env}/firmware.bin {EMU_DIR}/{env}.bin")
 	os.system(f"cp ./.pio/build/{env}/firmware.elf {EMU_DIR}/{env}.elf")
-	return env
+	return env	# binary name
+
+
+def compile_cmake_env() -> str:
+	print("TODOOOO")
+	return ""	# binary name
+
+
+def select_binary() -> str:
+	bins = os.listdir(f"{EMU_DIR}/bin")
+	bin = bins[0] if len(bins) == 1 else \
+		prompt(Choice(
+			"binary",
+			message="select binary",
+			choices=bins
+		))
+	bin = bin[:bin.rfind(".")]
+	
+	# TODO: why do we need a elf, bin pair??????????????????????????????????
+	os.system(f"cp {EMU_DIR}/bin/{bin}.bin {EMU_DIR}/{bin}.bin")
+	os.system(f"cp {EMU_DIR}/bin/{bin}.elf {EMU_DIR}/{bin}.elf")
+	return bin	# binary name
+
+
+def compile_env() -> str:
+	funcs = {
+		"pio": compile_pio_env,
+		"cmake": compile_cmake_env,
+		"precompiled": select_binary
+	}
+	
+	env = prompt(Choice(
+		"compile_type",
+		message="select compile method",
+		choices=list(funcs.keys())
+	))
+	
+	return funcs[env]()
+
+
 def load_binary(env: str) -> tuple[bytes, dict]:
 	with open(f"{EMU_DIR}/{env}.bin", "rb") as prog:
 		code = prog.read()
@@ -82,6 +125,7 @@ def load_binary(env: str) -> tuple[bytes, dict]:
 	}
 
 
+# TODO: why do we need a elf, bin pair???
 if __name__ == "__main__":
 	sys.excepthook = exception_hook
 

@@ -7,6 +7,7 @@ from multiprocessing import Process, Manager
 from rich import print
 from time import sleep
 
+
 # custom includes
 from helpers import *
 
@@ -18,22 +19,29 @@ __all__ = [
 
 # types
 class Software(Uc):
+	IVT = 16
+	def	__new__(cls, arch: int, mode: int, *args, **kwargs):
+		return object.__new__(cls)
+	
 	def __init__(self, arch: int, mode: int, config: dict, actions: list, breakpoints: list, hardware: str, load_emu: callable, single_step: bool = False) -> None:
 		# unicorn
-		super(self.__class__, self).__init__(arch, mode)
+		super(Software, self).__init__(arch, mode)
 		self.asm = Cs(arch - 1, mode); self.asm.detail = True
 
 		# flags and variables
-		self.manager = Manager()		# multi core variable manager
+		self.manager =		Manager()		# multi core variable manager
 		self.single_step =	self.manager.Value("single_step",	single_step)
 		self.next_step =	self.manager.Value("next_step",		False)
 		self.step =			self.manager.Value("step",			0)
+		self.halt =			self.manager.Value("halt",			False)
+		self.halted =		self.manager.Value("halted",		False)
+		self.end =			None
 
 		# init component classes
 		with open(hardware, "r") as file:
 			factory = load_emu(file)
 			file.close()
-		self.hardware = factory(self)
+		self.hardware =			factory(self)
 		self.config =			config
 		self.actions =			actions
 		self.breakpoints =		breakpoints
@@ -56,7 +64,7 @@ class Software(Uc):
 		self.hook_add(UC_HOOK_MEM_READ,		self.hardware.memory_read_hook)
 		self.hook_add(UC_HOOK_MEM_WRITE,	self.hardware.memory_write_hook)
 		self.hook_add(UC_HOOK_CODE,			self.code_hook)
-		self.hook_add(UC_HOOK_INTR,			self.interrupt_hook)
+		self.hook_add(UC_HOOK_INSN_INVALID,	self.instruction_invalid_hook)
 
 		# write peripheral reset values
 		self.hardware.reset_peripherals()
@@ -64,6 +72,11 @@ class Software(Uc):
 		# UI
 		self.UI_thread = None
 		self.keyboard = Controller()
+		
+		# interrupt
+		self.PC = None
+		self.ex_end = None
+	
 
 	# getters
 	def __str__(self) -> str:		return f"<[{self.__class__.__name__}], hardware: {self.hardware}>"
@@ -84,13 +97,23 @@ class Software(Uc):
 		self.code = code; self.info = info
 		self.mem_write(self.hardware.mem["load"], code)
 		self.reg_write(UC_ARM_REG_SP, info["stack_pointer"])
+		self.end = self.hardware.mem["load"] + len(self.code)
 
-	def start(self) -> None:
+
+	def start(self, start: int = None, end: int = None) -> None:
 		self.step.value = 0
-
-		start = Process(target=self.emu_start, args=(self.info["entry_point"], self.hardware.mem["load"] + len(self.code)))
+		if not start:	start = self.info["entry_point"]
+		if not end:		end = self.end
+		self.PC = start
+		self.ex_end = end
 		with Listener(on_press=self.UI) as self.UI_thread:
-			start.start(); start.join()
+			self.run()
+		print("ENDED")
+		
+	def run(self) -> None:
+		while True:
+			while self.halt.value: pass
+			self.emu_start(self.PC, self.ex_end)
 
 	def UI(self, key):  # UI callback
 		if key == Key.space:	self.single_step.value = not self.single_step.value		# toggle single_step
@@ -98,22 +121,75 @@ class Software(Uc):
 		if key == "a":
 			pass # TODO: open action dialog. here an action from the config can be chosen or made
 
+
+	def index_IVT(self, IRQn: int) -> tuple[int, int, str]:
+		x = 4 * (IRQn + self.IVT)
+		address = int.from_bytes(self.code[x:x+4], "little")
+		function = None
+		for func in self.info["functions"]:
+			if func[0] != address: continue
+			function = func; break
+		return function
+
+
 	def interrupt(self, IRQn: int) -> None:
-		print(IRQn)
+		IRQ_address, IRQ_size, IRQ_name = self.index_IVT(IRQn)
 		ctx = self.context_save()
-		print(bytes(ctx), ctx, ctx.__dict__)
+		self.halt.value = True
+		while not self.halted.value: pass
+		self.emu_stop()
+		self.context_restore(ctx)
+		pc = self.reg_read(UC_ARM_REG_PC)	# load pc for BL emulation
+		self.reg_write(UC_ARM_REG_LR, pc)	# copy pc to lr for BL emulation
+		print(f"[dark_orange]INTERUPT {IRQ_name} @{hex(IRQ_address)} => {hex(IRQ_address + IRQ_size)}[/dark_orange]")
+		# TODO: this function should only set the interrupt pending (called from thread) and halt the emulator elsewhere (main thread) <<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<
+		self.halt.value = False
+		self.PC = IRQ_address
+		#self.emu_start(IRQ_address, IRQ_address + IRQ_size)  # TODO: fetch unmapped?
+		
+		# TODO: EMULATION on both code blocks are started in paralel!!!!
+		#  - implement halt branch specifically!! (fixed with intentional DEADLOCK!!!!!!)
+		#  - errors are caused by issues with multi core implementation!! <<<<<<<<<<<<<<<<<<<<<<<< (regs are not synced)
+
+		
 		# TODO:
 		#  1. halt emu
+		#  1.1 store context
 		#  2. run interrupt code
 		#  3. restore context
 		#  4. resume emu
 		pass
 
+
+
 	# hooks
 	@staticmethod
 	def memory_invalid_hook(self, access, address, size, value, user_data) -> bool:
-		print(f"invalid: {access}, {hex(address)}, {size}, {value}: {hex(value)}")
+		print(f"memory invalid: {access}, {hex(address)}, {size}, {value}: {hex(value)}")
 		return False
+	
+	@staticmethod
+	def instruction_invalid_hook(self, key: int):
+		pc = self.reg_read(UC_ARM_REG_PC)
+		opcode = self.mem_read(pc, 4)
+	
+		print(f"[red1]INVALID INSTRUCTION @{hex(pc)}[/red1]")
+		print(f"[red1]RAW: {opcode.hex()}[/red1]")
+		
+		mnemonics = self.asm.disasm(opcode, pc)
+		for i in mnemonics:
+			print(f"[red1]ASM: {i.mnemonic}\t{i.op_str}[/red1]")
+		print("\n")
+		
+		cont = prompt(Choice(
+			"continue",
+			message="continue?",
+			choices=["yes", "no"]
+		)) == "yes"
+		if not cont: return False
+		self.reg_write(UC_ARM_REG_PC, pc + 4)
+		return True
+
 
 	@staticmethod
 	def code_hook(self: "Software", address, size, user_data):
@@ -138,7 +214,9 @@ class Software(Uc):
 				(bp == f_name and d_address < 2)	# enter function
 				or bp == address					# at address
 			)
+		# halt logic
+		if not self.halt.value or self.halted.value:	return
+		self.halted.value =								True
+		while self.halt.value:							pass
+		self.halted.value =								False
 
-	@staticmethod
-	def interrupt_hook(self, address, size, user_data):
-		print("interrupt")
