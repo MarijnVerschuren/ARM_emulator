@@ -1,7 +1,7 @@
 from unicorn import Uc
 from unicorn.unicorn_const import *
 from unicorn.arm_const import *
-from capstone import Cs
+from capstone import *
 from pynput.keyboard import Key, Listener, Controller
 from multiprocessing import Process, Manager
 from typing import Iterator
@@ -32,27 +32,49 @@ class IRQ_controller:
 		with self.lock:
 			self.pending.add(IRQn)
 	
+	def next(self, current: int = None) -> int or None:
+		if not self.pending: return None
+		irq = min(self.pending)
+		if current and current < irq: return None
+		self.pending.remove(irq)
+		return irq
+	
 	# TODO: overkill?
 	def __iter__(self) -> Iterator[int]: return self
-	def __next__(self) -> int or None:
+	def __next__(self) -> int:
 		with self.lock:
-			if not self.pending: raise StopIteration
-			irq = min(self.pending)
-			self.pending.remove(irq)
+			irq = self.next()
+			if not irq: raise StopIteration
 			return irq
 
 
 
 class Software(Uc):
 	IVT = 16
+	ADDR_MSK =		0xFFFFFFFE
+	THUMB_MSK =		0x00000001
+	MEM_ACCESS_TYPES = {
+		UC_MEM_READ:			"READ",
+		UC_MEM_WRITE:			"WRITE",
+		UC_MEM_FETCH:			"FETCH",
+		UC_MEM_READ_UNMAPPED:	"READ_UNMAPPED",
+		UC_MEM_WRITE_UNMAPPED:	"WRITE_UNMAPPED",
+		UC_MEM_FETCH_UNMAPPED:	"FETCH_UNMAPPED",
+		UC_MEM_WRITE_PROT:		"WRITE_PROT",
+		UC_MEM_READ_PROT:		"READ_PROT",
+		UC_MEM_FETCH_PROT:		"FETCH_PROT",
+		UC_MEM_READ_AFTER:		"READ_AFTER"
+	}
+	
 	def	__new__(cls, arch: int, mode: int, *args, **kwargs):
 		return object.__new__(cls)
 	
 	def __init__(self, arch: int, mode: int, config: dict, actions: list, breakpoints: list, hardware: str, load_emu: callable, single_step: bool = False) -> None:
 		# unicorn
 		super(Software, self).__init__(arch, mode)
-		self.asm = Cs(arch - 1, mode); self.asm.detail = True
-
+		#TODO: modular like: 	self.asm = Cs(arch - 1, mode); self.asm.detail = True
+		self.asm = Cs(CS_ARCH_ARM, CS_MODE_THUMB | CS_MODE_LITTLE_ENDIAN); self.asm.detail = True
+		
 		# flags and variables
 		self.manager =		Manager()		# multi core variable manager
 		self.single_step =	self.manager.Value("single_step",	single_step)
@@ -64,8 +86,11 @@ class Software(Uc):
 		
 		# interrupt controller
 		self.IRQ_ctrl = IRQ_controller()
-		self.IRQ_transition = False
-
+		self.IRQ_transition =	False
+		self.IRQn_active =		None
+		self.IRQ_call_stack =	[]
+		self.IRQ_stack =		[]
+		
 		# init component classes
 		with open(hardware, "r") as file:
 			factory = load_emu(file)
@@ -153,18 +178,70 @@ class Software(Uc):
 		return function
 	
 	
+	def IRQ_entry(self, IRQn: int) -> None:
+		# preserve non volatile registers
+		address = self.reg_read(UC_ARM_REG_PC)
+		frame = {
+			"R0":	self.reg_read(UC_ARM_REG_R0),
+			"R1":	self.reg_read(UC_ARM_REG_R1),
+			"R2":	self.reg_read(UC_ARM_REG_R2),
+			"R3":	self.reg_read(UC_ARM_REG_R3),
+			"R12":	self.reg_read(UC_ARM_REG_R12),
+			"LR":	self.reg_read(UC_ARM_REG_LR),
+			"PC":	self.reg_read(UC_ARM_REG_PC)	| self.THUMB_MSK,
+			"xPSC":	self.reg_read(UC_ARM_REG_XPSR)
+		}
+		self.IRQ_call_stack.append(address) # TODO: in irq ctrl?
+		self.IRQ_stack.append(frame) # TODO: in irq ctrl?
+		
+		IRQ_address, IRQ_size, IRQ_name = self.index_IVT(IRQn)
+		print(f"[dark_orange]IRQ: {IRQ_name}\t{hex(IRQ_address)} => {hex(IRQ_address + IRQ_size)}[/dark_orange]")
+		
+		self.reg_write(UC_ARM_REG_LR, address | self.THUMB_MSK)
+		self.reg_write(UC_ARM_REG_PC, IRQ_address)
+		self.IRQ_transition =	True
+		self.IRQn_active =		IRQn
+		
+		
+	def IRQ_exit(self) -> None:
+		if not self.IRQ_stack:
+			print("[red]IRQ RETURN with empty stack![/red]")
+			return
+		
+		print(f"[dark_orange]IRQ return[/dark_orange]")
+		
+		self.IRQ_call_stack.pop()
+		frame = self.IRQ_stack.pop()
+		self.reg_write(UC_ARM_REG_R0,	frame["R0"])
+		self.reg_write(UC_ARM_REG_R1,	frame["R1"])
+		self.reg_write(UC_ARM_REG_R2,	frame["R2"])
+		self.reg_write(UC_ARM_REG_R3,	frame["R3"])
+		self.reg_write(UC_ARM_REG_R12,	frame["R12"])
+		self.reg_write(UC_ARM_REG_LR,	frame["LR"])
+		self.reg_write(UC_ARM_REG_PC,	frame["PC"])
+		self.reg_write(UC_ARM_REG_XPSR,	frame["xPSC"])
+		self.IRQn_active = None
+	
+	
 	# hooks
 	@staticmethod
-	def memory_invalid_hook(self, access, address, size, value, user_data) -> bool:
-		print(f"memory invalid: {access}, {hex(address)}, {size}, {value}: {hex(value)}")
-		return prompt(Choice(
+	def memory_invalid_hook(self: "Software", access, address, size, value, user_data) -> bool:
+		print(f"memory invalid: {self.MEM_ACCESS_TYPES[access]}, {size} @{hex(address)} => {hex(value)}")
+		print(self.regs, end="")
+		cont = prompt(Choice(
 			"continue",
 			message="continue?",
 			choices=["yes", "no"]
 		)) == "yes"
+		
+		if not cont: return False
+		pc = self.reg_read(UC_ARM_REG_PC)
+		self.reg_write(UC_ARM_REG_PC, pc + 2)
+		return True
+	
 	
 	@staticmethod
-	def instruction_invalid_hook(self, key: int):
+	def instruction_invalid_hook(self: "Software", key: int):
 		pc = self.reg_read(UC_ARM_REG_PC)
 		opcode = self.mem_read(pc, 4)
 	
@@ -182,20 +259,17 @@ class Software(Uc):
 			choices=["yes", "no"]
 		)) == "yes"
 		if not cont: return False
-		self.reg_write(UC_ARM_REG_PC, pc + 4)
+		self.reg_write(UC_ARM_REG_PC, pc + 2)
 		return True
 
 
 	@staticmethod
-	def block_hook(self: "Software", address, size, user_data):
-		if self.IRQ_transition: self.IRQ_transition = False; return
+	def block_hook(self: "Software", address, size, user_data) -> None:
+		if self.IRQ_transition: self.IRQ_transition = False; return None
 		print(f"[magenta2]BLOCK HOOK {hex(address)}, {size}[/magenta2]")
-		for IRQn in self.IRQ_ctrl:
-			IRQ_address, IRQ_size, IRQ_name = self.index_IVT(IRQn)
-			print(f"[dark_orange]IRQ: {IRQ_name}\t{hex(IRQ_address)} => {hex(IRQ_address + IRQ_size)}[/dark_orange]")
-			self.reg_write(UC_ARM_REG_LR, address)
-			self.reg_write(UC_ARM_REG_PC, IRQ_address)
-			self.IRQ_transition = True
+		if self.IRQ_call_stack and address == self.IRQ_call_stack[-1]: return self.IRQ_exit()
+		if IRQn := self.IRQ_ctrl.next(self.IRQn_active): return self.IRQ_entry(IRQn)
+		
 
 
 	@staticmethod
@@ -206,15 +280,16 @@ class Software(Uc):
 			while not self.next_step.value and self.single_step.value: pass
 			self.next_step.value = False
 		self.step.value += 1
+		
 		# forensics
 		f_address = 0; f_name = ""
 		for f_address, s, f_name in self.info["functions"][::-1]:
-			if f_address < address: break
+			f_address &= self.ADDR_MSK
+			if f_address <= address: break
 		opcode = self.mem_read(address, size)
 		mnemonics = self.asm.disasm(opcode, address)
 		d_address = address - f_address
-		for i in mnemonics:
-			print(f"{hex(i.address)} ({f_name} + {hex(d_address)}): {i.mnemonic}\t{i.op_str}")
+		
 		# breakpoint logic
 		for bp in self.breakpoints:
 			self.single_step.value |= (
@@ -222,8 +297,12 @@ class Software(Uc):
 				or bp == address					# at address
 			)
 		# halt logic
-		if not self.halt.value or self.halted.value:	return
-		self.halted.value =								True
-		while self.halt.value:							pass
-		self.halted.value =								False
+		if self.halt.value or not self.halted.value:
+			self.halted.value =								True
+			while self.halt.value:							pass
+			self.halted.value =								False
+		
+		# print (just before return / exec)
+		for i in mnemonics:
+			print(f"{hex(i.address)} ({f_name} + {hex(d_address)}): {i.mnemonic}\t{i.op_str}")
 

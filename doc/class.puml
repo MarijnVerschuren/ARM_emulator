@@ -1,0 +1,34 @@
+@startuml
+
+class Software <<unicorn>> {
+	hardware: Hardware
+}
+class Hardware {
+	peripherals: List[Peripheral]
+}
+stereotype Peripheral_Template {
+	Base_cfg
+	registers: List[Register]
+}
+class Peripheral {
+	registers: List[Register]
+}
+class Register {
+	triggers: List[Trigger]
+}
+class Trigger {
+	actions: List[Action]
+}
+class Action {
+}
+
+Software "1"    --*     "1" Hardware
+Hardware "1"    --*     "*" Peripheral
+Peripheral "*"  --|>    "1" Peripheral_Template : json data repr
+Peripheral "1"  --*     "*" Register
+Register "1"    --*     "*" Trigger
+Trigger "1"     --*     "*" Action
+
+
+
+@enduml

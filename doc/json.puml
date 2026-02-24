@@ -1,0 +1,55 @@
+@startuml
+
+class Software {
+	hardware: str
+	config: dict
+}
+
+class Hardware {
+	memory: dict
+	device: dict
+}
+stereotype Peripheral_Template {
+	type: str
+	base_cfg: dict
+	regs: dict
+}
+class Register {
+	offset: int
+	label: str
+	bits: list[str]
+	reset: int
+	triggers: list[Trigger]
+}
+class Trigger {
+	action: list[Action]
+	src: None or List[
+		bit: int
+		size: int
+	]
+}
+class Action {
+	src: int or List[
+		periph: str
+		offset: int
+		bit: int
+		size: int
+	]
+	dst: List[
+		periph: str
+		offset: int
+		bit: int
+		size: int
+	]
+}
+
+
+Software.Hardware
+Hardware "1"            --*     "*" Peripheral_Template
+Peripheral_Template "1" --*     "*" Register
+Register "1"            --*     "*" Trigger
+Trigger "1"             --*     "*" Action
+
+
+
+@enduml

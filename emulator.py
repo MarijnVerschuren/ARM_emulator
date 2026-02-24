@@ -19,6 +19,7 @@ abs_path =	os.path.abspath
 EMU_DIR =		abs_path(dir_name(__file__))
 EMU_ARG =		{"arch": UC_ARCH_ARM, "mode": UC_MODE_THUMB}
 
+
 # Python exception handler
 def exception_hook(type, value, traceback):
 	if type == KeyboardInterrupt:
