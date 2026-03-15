@@ -266,7 +266,7 @@ class Software(Uc):
 	@staticmethod
 	def block_hook(self: "Software", address, size, user_data) -> None:
 		if self.IRQ_transition: self.IRQ_transition = False; return None
-		print(f"[magenta2]BLOCK HOOK {hex(address)}, {size}[/magenta2]")
+		#print(f"[magenta2]BLOCK HOOK {hex(address)}, {size}[/magenta2]")
 		if self.IRQ_call_stack and address == self.IRQ_call_stack[-1]: return self.IRQ_exit()
 		if IRQn := self.IRQ_ctrl.next(self.IRQn_active): return self.IRQ_entry(IRQn)
 		

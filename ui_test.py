@@ -10,9 +10,36 @@ from collections import deque
 
 
 REFRESH_RATE = 0.05
-LOG_HISTORY = 300
+LOG_SIZE = 300
 
 ANSI_RE = re.compile(r"\x1b\[[0-9;]*m")
+
+
+
+class Terminal:
+    def __init__(self) -> None:
+        self.fd =   sys.stdin.fileno()
+        self.attr = termios.tcgetattr(self.fd)
+
+    def __enter__(self) -> "Terminal":
+        tty.setcbreak(self.fd)
+        print("\033[?25l", end="")  # hide cursor
+        print("\033[2J", end="")    # clear once
+        return self
+
+    def __exit__(self, *args) -> None:
+        termios.tcsetattr(self.fd, termios.TCSADRAIN, self.attr)
+        print("\033[0m\033[?25h")   # reset + show cursor
+        print("\033[H", end="")
+
+    def get_key(self) -> bytes or str or None:
+        if select.select([sys.stdin], [], [], 0)[0]:
+            return sys.stdin.read(1)
+        return None
+    
+
+
+
 
 
 def strip_ansi(text: str) -> str:
@@ -30,43 +57,24 @@ def pad_visible(text: str, width: int) -> str:
     return text[:width]
 
 
-class Terminal:
+
+class app:
     def __init__(self):
-        self.fd = sys.stdin.fileno()
-        self.old = termios.tcgetattr(self.fd)
+        self.running =      False
+        
+        # window flags
+        self.show_code =    True
+        self.show_state =   True
+        self.show_hw =      True
 
-    def __enter__(self):
-        tty.setcbreak(self.fd)
-        print("\033[?25l", end="")  # hide cursor
-        print("\033[2J", end="")    # clear once
-        return self
-
-    def __exit__(self, *args):
-        termios.tcsetattr(self.fd, termios.TCSADRAIN, self.old)
-        print("\033[0m\033[?25h")   # reset + show cursor
-        print("\033[H", end="")
-
-    def get_key(self):
-        if select.select([sys.stdin], [], [], 0)[0]:
-            return sys.stdin.read(1)
-        return None
-
-
-class UI:
-    def __init__(self):
-        self.running = True
-        self.show_code = True
-        self.show_state = True
-        self.show_hw = True
-
-        self.log = deque(maxlen=LOG_HISTORY)
+        self.log = deque(maxlen=LOG_SIZE)
         self.lock = Lock()
-
+        # TODO
         self.prev_rows = {}
 
         self._start_log_thread()
 
-    # ---------------- LOG GENERATOR ---------------- #
+
 
     def _start_log_thread(self):
         def worker():
@@ -80,6 +88,7 @@ class UI:
                 time.sleep(0.12)
 
         Thread(target=worker, daemon=True).start()
+
 
     # ---------------- BOX RENDERING ---------------- #
 
@@ -120,6 +129,7 @@ class UI:
             rows[row][x + 1] = padded
 
     # ---------------- FRAME RENDER ---------------- #
+
 
     def render(self):
         width, height = shutil.get_terminal_size()
@@ -206,6 +216,7 @@ class UI:
     # ---------------- MAIN LOOP ---------------- #
 
     def run(self):
+        self.running = True
         with Terminal() as term:
             while self.running:
                 key = term.get_key()
@@ -217,4 +228,5 @@ class UI:
 
 
 if __name__ == "__main__":
-    UI().run()
+    app().run()
+    

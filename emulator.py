@@ -126,6 +126,7 @@ def load_binary(env: str) -> tuple[bytes, dict]:
 	}
 
 
+
 # TODO: why do we need a elf, bin pair???
 if __name__ == "__main__":
 	sys.excepthook = exception_hook

@@ -1,7 +1,6 @@
 from .software import *
 from .hardware import *
 from .serializer import *
-from .UI import *
 
 
 __all__ = [
@@ -14,7 +13,5 @@ __all__ = [
 	# serializer.py
 	"load_emu",
 	# software.py
-	"Software",
-	# UI.py
-	"UI"
+	"Software"
 ]
