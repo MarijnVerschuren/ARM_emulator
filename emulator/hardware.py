@@ -1,5 +1,5 @@
 # includes
-from threading import Thread
+from threading import Thread, Event
 import time
 
 # TUI includes
@@ -27,8 +27,9 @@ class Hardware_Thread(Thread):
 		super(Hardware_Thread, self).__init__(target=self.func, name=f"{self.__class__.__name__}{num or ''}", daemon=False)
 		self.dev = dev
 		self.interrupt = self.dev.emu.IRQ_ctrl.trigger
+		self.shutdown = Event()
 		self.start()
-
+		
 	def func(self) -> None: pass
 
 
@@ -57,11 +58,11 @@ class SysTick(Hardware_Thread):
 	def val(self) -> int:		return self.dev[self.VAL].data.value
 	@property
 	def calib(self) -> int:		return self.dev[self.CALIB].data.value
-
+	
 	def func(self) -> None:
 		last_check = self.kernel
 		last_tick = 0
-		while True:
+		while not self.shutdown.wait(0.01):
 			if last_check == self.kernel:			continue
 			last_check = self.kernel
 			en, ie, src = self.ctrl
@@ -93,10 +94,18 @@ class Hardware:
 	def __repr__(self) -> str:	return f"<[{self.__class__.__name__}], {self.mem}, {self.dev}>"
 
 	# control
-	def reset_peripherals(self):
+	def reset_peripherals(self) -> None:
 		for peripheral in self.dev:
 			for register in peripheral:
 				register.update()
+				
+	def shutdown(self) -> None:
+		for peripheral in self.dev:
+			if peripheral.thread:
+				peripheral.thread.shutdown.set()
+				peripheral.thread.join()
+	
+	
 	def find_register(self, peripheral: str, offset: int) -> "Register":
 		for periph in self.dev:
 			if periph.label != peripheral: continue
@@ -104,23 +113,23 @@ class Hardware:
 		return None
 	
 	# hooks
-	def memory_read_hook(self, emu, access, address, size, value, user_data):
+	def memory_read_hook(self, emu, access, address, size, value, user_data) -> None:
 		value = int.from_bytes(emu.mem_read(address, size), "little")
 		for periph in self.dev:
 			in_range, offset = periph.offset(address)
 			if not in_range: continue
 			periph.read(offset, value)
 			break
-		else: print(f"read {hex(value)} from {hex(address)}, size: {size}, access:{access}")
+		else: emu.UI.log("MEM", f"read {hex(value)} from {hex(address)}, size: {size}, access:{access}")
 	
-	def memory_write_hook(self, emu, access, address, size, value, user_data):
+	def memory_write_hook(self, emu, access, address, size, value, user_data) -> None:
 		emu.mem_write(address, value.to_bytes(size, byteorder="little"))
 		for periph in self.dev:
 			in_range, offset = periph.offset(address)
 			if not in_range: continue
 			periph.write(offset, value)
 			break
-		else: print(f"write {hex(value)} to {hex(address)}, size: {size}, access:{access}")
+		else: emu.UI.log("MEM", f"write {hex(value)} to {hex(address)}, size: {size}, access:{access}")
 
 
 class Peripheral:
@@ -180,12 +189,12 @@ class Register:
 
 	def read(self, value: int) -> None:
 		self.update()
-		print(f"read {hex(value)} from {self.parent.label}->{self.label}, regs: {self.emu.regs}")
+		self.emu.UI.log("MEM", f"read {hex(value)} from {self.parent.label}->{self.label}, regs: {self.emu.regs}")
 		for trigger in self.triggers: trigger.read_hook(self)
 
 	def write(self, value: int) -> None:
 		self.data.value = value
-		print(f"wrote {hex(value)} to {self.parent.label}->{self.label}, regs: {self.emu.regs}")
+		self.emu.UI.log("MEM", f"wrote {hex(value)} to {self.parent.label}->{self.label}, regs: {self.emu.regs}")
 		for trigger in self.triggers: trigger.write_hook(self, value)
 
 

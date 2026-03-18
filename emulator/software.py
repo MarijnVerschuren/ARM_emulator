@@ -11,6 +11,7 @@ from time import sleep
 
 # custom includes
 from helpers import *
+from .UI import Emulator_UI, Emulator_UI_default
 
 
 __all__ = [
@@ -69,7 +70,11 @@ class Software(Uc):
 	def	__new__(cls, arch: int, mode: int, *args, **kwargs):
 		return object.__new__(cls)
 	
-	def __init__(self, arch: int, mode: int, config: dict, actions: list, breakpoints: list, hardware: str, load_emu: callable, single_step: bool = False) -> None:
+	def __init__(
+			self, arch: int, mode: int, config: dict, actions: list,
+			breakpoints: list, hardware: str, load_emu: callable,
+			single_step: bool = False, UI_class: Emulator_UI = Emulator_UI_default()
+	) -> None:
 		# unicorn
 		super(Software, self).__init__(arch, mode)
 		#TODO: modular like: 	self.asm = Cs(arch - 1, mode); self.asm.detail = True
@@ -84,12 +89,16 @@ class Software(Uc):
 		self.halted =		self.manager.Value("halted",		False)
 		self.end =			None
 		
+		# code controller
+		self.instruction_index =	0
+		self.lr_stack =				[]	# used to determine calls and returns
+		
 		# interrupt controller
-		self.IRQ_ctrl = IRQ_controller()
-		self.IRQ_transition =	False
-		self.IRQn_active =		None
-		self.IRQ_call_stack =	[]
-		self.IRQ_stack =		[]
+		self.IRQ_ctrl =				IRQ_controller()
+		self.IRQ_transition =		False
+		self.IRQn_active =			None
+		self.IRQ_call_stack =		[]
+		self.IRQ_stack =			[]
 		
 		# init component classes
 		with open(hardware, "r") as file:
@@ -107,7 +116,12 @@ class Software(Uc):
 		if self.config["periph"]:			self.mem_map(dmem["periph"]["start"],	dmem["periph"]["size"])			# memory map peripheral space
 		if self.config["var"]:				self.mem_map(dmem["var"]["start"],		dmem["var"]["size"])			# memory map variable space
 		if self.config["core"]:				self.mem_map(dmem["core"]["start"],		dmem["core"]["size"])			# memory map core space
-
+		
+		# UI class
+		self.UI = UI_class
+		self.keyboard_thread = None
+		self.keyboard = Controller()
+		
 		# add hooks
 		self.hook_add(
 			UC_HOOK_MEM_READ_UNMAPPED |
@@ -123,11 +137,6 @@ class Software(Uc):
 
 		# write peripheral reset values
 		self.hardware.reset_peripherals()
-
-		# UI
-		self.UI_thread = None
-		self.keyboard = Controller()
-		# TODO: make class that handles all ui allowing: cmd, tui and gui options
 		
 	
 
@@ -144,6 +153,15 @@ class Software(Uc):
 			"LR": hex(self.reg_read(UC_ARM_REG_LR)),
 			"PC": hex(self.reg_read(UC_ARM_REG_PC))
 		}
+	
+	
+	def PC_context(self, address: int) -> tuple[int, str]:
+		f_address = 0; f_name = ""
+		for f_address, s, f_name in self.info["functions"][::-1]:
+			f_address &= self.ADDR_MSK
+			if f_address <= address: break
+		return address - f_address, f_name
+
 
 	# control
 	def load_code(self, code: bytes, info: dict) -> None:
@@ -157,14 +175,16 @@ class Software(Uc):
 		self.step.value = 0
 		if not start:	start = self.info["entry_point"]
 		if not end:		end = self.end
-		with Listener(on_press=self.UI_cb) as self.UI_thread:
+		with Listener(on_press=self.keyboard_cb) as self.keyboard_thread:
 			self.emu_start(start, end)
-		print("ENDED")
+		
 
-	def UI_cb(self, key):  # UI callback
-		if key == Key.space:	self.single_step.value = not self.single_step.value		# toggle single_step
-		if key == Key.enter and self.single_step.value:	self.next_step.value = True		# set next_step if single_step is active
-		if key == "a":
+	def keyboard_cb(self, key):  # UI callback
+		ch = getattr(key, "char", None)
+		if key == Key.space:	self.single_step.value = not self.single_step.value				# toggle single_step
+		if key == Key.enter and self.single_step.value:	self.next_step.value = True				# set next_step if single_step is active
+		if ch == "q": self.hardware.shutdown(); self.emu_stop(); self.next_step.value = True	# stop all threads (set next_step.value to quit emulator thread in case of single step)
+		if ch == "a":
 			pass # TODO: open action dialog. here an action from the config can be chosen or made
 
 
@@ -176,6 +196,16 @@ class Software(Uc):
 			if func[0] != address: continue
 			function = func; break
 		return function
+	
+	
+	def call_stack_update(self, address: int) -> None:
+		offset, f_name = self.PC_context(address)
+		if offset == 0:
+			self.lr_stack.append(self.reg_read(UC_ARM_REG_LR) & self.ADDR_MSK)
+			self.UI.log("CALL", f_name)
+		elif self.lr_stack and self.lr_stack[-1] == address:
+			self.lr_stack.pop()
+			self.UI.log("RET", f_name)
 	
 	
 	def IRQ_entry(self, IRQn: int) -> None:
@@ -195,7 +225,9 @@ class Software(Uc):
 		self.IRQ_stack.append(frame) # TODO: in irq ctrl?
 		
 		IRQ_address, IRQ_size, IRQ_name = self.index_IVT(IRQn)
-		print(f"[dark_orange]IRQ: {IRQ_name}\t{hex(IRQ_address)} => {hex(IRQ_address + IRQ_size)}[/dark_orange]")
+		
+		#self.UI.log("IRQ_CALL", f"{IRQ_name}\t{hex(IRQ_address)} => {hex(IRQ_address + IRQ_size)}")
+		self.UI.log("IRQ_CALL", IRQ_name)
 		
 		self.reg_write(UC_ARM_REG_LR, address | self.THUMB_MSK)
 		self.reg_write(UC_ARM_REG_PC, IRQ_address)
@@ -205,10 +237,10 @@ class Software(Uc):
 		
 	def IRQ_exit(self) -> None:
 		if not self.IRQ_stack:
-			print("[red]IRQ RETURN with empty stack![/red]")
+			self.UI.log("ERROR", "IRQ RETURN with empty stack!")
 			return
 		
-		print(f"[dark_orange]IRQ return[/dark_orange]")
+		self.UI.log("IRQ_RET", "IRQ return")
 		
 		self.IRQ_call_stack.pop()
 		frame = self.IRQ_stack.pop()
@@ -221,13 +253,15 @@ class Software(Uc):
 		self.reg_write(UC_ARM_REG_PC,	frame["PC"])
 		self.reg_write(UC_ARM_REG_XPSR,	frame["xPSC"])
 		self.IRQn_active = None
-	
-	
+		
+		
+		
 	# hooks
 	@staticmethod
 	def memory_invalid_hook(self: "Software", access, address, size, value, user_data) -> bool:
-		print(f"memory invalid: {self.MEM_ACCESS_TYPES[access]}, {size} @{hex(address)} => {hex(value)}")
-		print(self.regs, end="")
+		self.UI.log("ERROR", f"memory invalid: {self.MEM_ACCESS_TYPES[access]}, {size} @{hex(address)} => {hex(value)}")
+		
+		# TODO: via ui class!!!!
 		cont = prompt(Choice(
 			"continue",
 			message="continue?",
@@ -244,15 +278,15 @@ class Software(Uc):
 	def instruction_invalid_hook(self: "Software", key: int):
 		pc = self.reg_read(UC_ARM_REG_PC)
 		opcode = self.mem_read(pc, 4)
-	
-		print(f"[red1]INVALID INSTRUCTION @{hex(pc)}[/red1]")
-		print(f"[red1]RAW: {opcode.hex()}[/red1]")
+		
+		self.UI.log("ERROR", f"INVALID INSTRUCTION @{hex(pc)}")
+		self.UI.log("ERROR", f"RAW: {opcode.hex()}")
 		
 		mnemonics = self.asm.disasm(opcode, pc)
 		for i in mnemonics:
-			print(f"[red1]ASM: {i.mnemonic}\t{i.op_str}[/red1]")
-		print("\n")
+			self.UI.log("ERROR", f"ASM: {i.mnemonic}\t{i.op_str}")
 		
+		# TODO: via ui class!!!!
 		cont = prompt(Choice(
 			"continue",
 			message="continue?",
@@ -266,29 +300,24 @@ class Software(Uc):
 	@staticmethod
 	def block_hook(self: "Software", address, size, user_data) -> None:
 		if self.IRQ_transition: self.IRQ_transition = False; return None
-		#print(f"[magenta2]BLOCK HOOK {hex(address)}, {size}[/magenta2]")
 		if self.IRQ_call_stack and address == self.IRQ_call_stack[-1]: return self.IRQ_exit()
 		if IRQn := self.IRQ_ctrl.next(self.IRQn_active): return self.IRQ_entry(IRQn)
-		
-
-
+		return self.call_stack_update(address)
+	
+	
 	@staticmethod
 	def code_hook(self: "Software", address, size, user_data):
 		# sync
 		if self.single_step.value:
-			print(self.regs, end="")
+			#print(self.regs, end="") TODO
 			while not self.next_step.value and self.single_step.value: pass
 			self.next_step.value = False
 		self.step.value += 1
 		
 		# forensics
-		f_address = 0; f_name = ""
-		for f_address, s, f_name in self.info["functions"][::-1]:
-			f_address &= self.ADDR_MSK
-			if f_address <= address: break
+		d_address, f_name = self.PC_context(address)
 		opcode = self.mem_read(address, size)
 		mnemonics = self.asm.disasm(opcode, address)
-		d_address = address - f_address
 		
 		# breakpoint logic
 		for bp in self.breakpoints:
@@ -304,5 +333,6 @@ class Software(Uc):
 		
 		# print (just before return / exec)
 		for i in mnemonics:
-			print(f"{hex(i.address)} ({f_name} + {hex(d_address)}): {i.mnemonic}\t{i.op_str}")
-
+			self.UI.log("CODE", f"[{self.instruction_index}] {hex(i.address)} ({f_name} + {hex(d_address)}): {i.mnemonic}\t{i.op_str}")
+		
+		self.instruction_index += 1

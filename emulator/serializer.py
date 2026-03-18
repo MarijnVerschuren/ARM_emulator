@@ -1,8 +1,10 @@
 from json import dump, JSONEncoder, load, JSONDecoder
 from functools import partial
+from rich import print
 
 from .software import *
 from .hardware import *
+from .UI import Emulator_UI, Emulator_UI_default
 
 
 __all__ = [
@@ -18,8 +20,8 @@ class Software_Factory:
 		self.breakpoints = breakpoints
 		self.hardware = hardware
 
-	def __call__(self, cfg_dir, arch: int, mode: int, single_step: bool = False) -> Software:
-		return Software(arch, mode, self.config, self.actions, self.breakpoints, f"{cfg_dir}/{self.hardware}", load_emu, single_step)
+	def __call__(self, cfg_dir, arch: int, mode: int, single_step: bool = False, UI_class: Emulator_UI = Emulator_UI_default()) -> Software:
+		return Software(arch, mode, self.config, self.actions, self.breakpoints, f"{cfg_dir}/{self.hardware}", load_emu, single_step, UI_class)
 	def __str__(self) -> str:	return f"<[{self.__class__.__name__}], config: {self.config}, hardware: {self.hardware}>"
 	def __repr__(self) -> str:	return str(self)
 

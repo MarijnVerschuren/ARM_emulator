@@ -10,7 +10,8 @@
 		"accel": 2240000
 	},
 	"breakpoints": [
-		"GPIO_toggle"
+		"GPIO_toggle",
+		"SysTick_Handler"
 	],
 	"actions": [],
 	"hardware": "STM32H7B0.json"
