@@ -5,7 +5,7 @@ from unicorn.arm_const import *
 # TUI includes
 from rich import print
 # general includes
-import json, sys, os
+import json, sys, os, time
 
 # custom includes
 from helpers import *
@@ -24,17 +24,28 @@ EMU_ARG =		{"arch": UC_ARCH_ARM, "mode": UC_MODE_THUMB}
 
 
 # TUI class
+class Registers_TUI(dict):
+	def __hash__(self) -> int: return hash(tuple(hash((r, d)) for r, d in self.items()))
+	def __str__(self) -> str:
+		out = []
+		for reg, dat in self.items():
+			out.append(f"{reg}: {rgb_fg(0x30, 0x60, 0xA0)}{dat}")
+		return "\n".join(out)
+	
+	
 class Emulator_TUI(Emulator_UI):
 	def __init__(self) -> None:
 		color = (0xD9, 0xA3, 0x4C)
 		config = {
-			"grid": [3, 2],
+			"grid": [3, 4],
 			"modules": {
 				"tbox": [
-					{"x": 0, "y": 0, "w": 1, "h": 2, "title": "code",		"color": color, "augments": [(0, 1, "❯")]},
-					{"x": 1, "y": 0, "w": 1, "h": 1, "title": "call_stack",	"color": color, "augments": [(0, 1, "❯")]},
-					{"x": 2, "y": 0, "w": 1, "h": 1, "title": "registers",	"color": color},
-					{"x": 1, "y": 1, "w": 2, "h": 1, "title": "hardware",	"color": color},
+					{"x": 0, "y": 0, "w": 1, "h": 4, "title": "code",		"color": color, "augments": [(0, 1, "❯")]},
+					{"x": 1, "y": 0, "w": 1, "h": 2, "title": "call_stack",	"color": color, "augments": [(0, 1, "❯")]},
+					{"x": 1, "y": 2, "w": 2, "h": 2, "title": "hardware",	"color": color},
+				],
+				"obox": [
+					{"x": 2, "y": 0, "w": 1, "h": 2, "title": "registers",	"color": color}
 				]
 			}
 		}
@@ -43,8 +54,27 @@ class Emulator_TUI(Emulator_UI):
 		self.code_tbox =		self.tui.get_child("tbox", "code")
 		self.hardware_tbox =	self.tui.get_child("tbox", "hardware")
 		self.call_stack_tbox =	self.tui.get_child("tbox", "call_stack")
-		self.register_tbox =	self.tui.get_child("tbox", "registers")
+		self.register_obox =	self.tui.get_child("obox", "registers")
+		
+		self.regs = Registers_TUI()
+		self.register_obox.set_obj(self.regs)
+		
 	
+	def prompt(self, msg: str, text: str) -> None: # todo: title, color
+		prompt = TPrompt(1, 1, 1, 2, msg, msg, text, (0xFF, 0, 0))
+		self.tui.prompt(prompt)
+		while not prompt.eval():
+			time.sleep(0.01)
+	
+	def prompt_choice(self, msg: str, choices: list) -> any:  # todo: title and color
+		prompt = CPrompt(1, 1, 1, 2, msg, msg, choices, (0xA0, 0xA0, 0))
+		self.tui.prompt(prompt)
+		while not (out := prompt.eval()):
+			time.sleep(0.01)
+		return out
+	
+	def log_regs(self, regs: dict):
+		self.regs.update(regs)
 	
 	def log(self, log_type: str, text: str) -> None:
 		if log_type == "CODE":
@@ -73,16 +103,18 @@ def exception_hook(type, value, traceback):
 	else: sys.__excepthook__(type, value, traceback)
 
 
+
 # init
-def init_config(single_step: bool = False, UI_class: Emulator_UI = Emulator_UI_default()) -> Software:
+def init_config(UI_class: Emulator_UI, single_step: bool = False) -> Software:
 	configs = os.listdir(f"{EMU_DIR}/configs")
 	if not configs: raise ValueError("no emulation config found")
 	config = configs[0] if len(configs) <= 1 else \
-		prompt(Choice(
-			"emulation_config",
-			message="select emulation config",
-			choices=configs
-		))
+		UI_class.prompt_choice("select emulation config", configs)
+		# prompt(Choice(
+		# 	"emulation_config",
+		# 	message="select emulation config",
+		# 	choices=configs
+		# ))
 
 	with open(f"{EMU_DIR}/configs/{config}", "r") as file:
 		factory = load_emu(file)
@@ -91,17 +123,18 @@ def init_config(single_step: bool = False, UI_class: Emulator_UI = Emulator_UI_d
 	return factory(f"{EMU_DIR}/dev_configs", single_step=single_step, UI_class=UI_class, **EMU_ARG)
 
 
-def compile_pio_env() -> str:
+def compile_pio_env(UI_class: Emulator_UI) -> str:
 	envs = os.popen("cat platformio.ini | grep env: | sed 's/.*env://' | sed 's/]//'").read()
 	if not envs: raise ValueError("no platformio config found")
 
 	envs = envs.split("\n")[:-1]
 	env = envs[0] if len(envs) == 1 else \
-		prompt(Choice(
-			"build_config",
-			message="select build config",
-			choices=envs
-		))
+		UI_class.prompt_choice("select build config", envs)
+		# prompt(Choice(
+		# 	"build_config",
+		# 	message="select build config",
+		# 	choices=envs
+		# ))
 
 	os.system(f"pio debug -e {env}")
 	os.system(f"cp ./.pio/build/{env}/firmware.bin {EMU_DIR}/{env}.bin")
@@ -109,19 +142,20 @@ def compile_pio_env() -> str:
 	return env	# binary name
 
 
-def compile_cmake_env() -> str:
-	print("TODOOOO")
+def compile_cmake_env(UI_class: Emulator_UI) -> str:
+	UI_class.log("INIT", "TODOOOO")
 	return ""	# binary name
 
 
-def select_binary() -> str:
+def select_binary(UI_class: Emulator_UI) -> str:
 	bins = os.listdir(f"{EMU_DIR}/bin")
 	bin = bins[0] if len(bins) == 1 else \
-		prompt(Choice(
-			"binary",
-			message="select binary",
-			choices=bins
-		))
+		UI_class.prompt_choice("select binary", bins)
+		# prompt(Choice(
+		# 	"binary",
+		# 	message="select binary",
+		# 	choices=bins
+		# ))
 	bin = bin[:bin.rfind(".")]
 	
 	# TODO: why do we need a elf, bin pair??????????????????????????????????
@@ -130,20 +164,21 @@ def select_binary() -> str:
 	return bin	# binary name
 
 
-def compile_env() -> str:
+def compile_env(UI_class: Emulator_UI) -> str:
 	funcs = {
 		"pio": compile_pio_env,
 		"cmake": compile_cmake_env,
 		"precompiled": select_binary
 	}
 	
-	env = prompt(Choice(
-		"compile_type",
-		message="select compile method",
-		choices=list(funcs.keys())
-	))
+	env = UI_class.prompt_choice("select compile method", list(funcs.keys()))
+	# env = prompt(Choice(
+	# 	"compile_type",
+	# 	message="select compile method",
+	# 	choices=list(funcs.keys())
+	# ))
 	
-	return funcs[env]()
+	return funcs[env](UI_class)
 
 
 def load_binary(env: str) -> tuple[bytes, dict]:
@@ -179,19 +214,18 @@ if __name__ == "__main__":
 	sys.excepthook = exception_hook
 
 	UI = Emulator_TUI()
+	t = Thread(target=UI.tui.run)
+	t.start()
 	
 	# init sequence
-	emu = init_config(False, UI)
-	env = compile_env()
+	emu = init_config(UI, False)
+	env = compile_env(UI)
 	code, info = load_binary(env)
 
 	# load code
-	print(info)
-	input()
+	#print(info); input()
 	emu.load_code(code, info)
 	
-	t = Thread(target=UI.tui.run)
-	t.start()
 
 	# start emulation
 	try:					emu.start()

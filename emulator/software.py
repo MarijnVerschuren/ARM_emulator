@@ -10,7 +10,6 @@ from rich import print
 from time import sleep
 
 # custom includes
-from helpers import *
 from .UI import Emulator_UI, Emulator_UI_default
 
 
@@ -261,12 +260,10 @@ class Software(Uc):
 	def memory_invalid_hook(self: "Software", access, address, size, value, user_data) -> bool:
 		self.UI.log("ERROR", f"memory invalid: {self.MEM_ACCESS_TYPES[access]}, {size} @{hex(address)} => {hex(value)}")
 		
-		# TODO: via ui class!!!!
-		cont = prompt(Choice(
-			"continue",
-			message="continue?",
+		cont = self.UI.prompt_choice(
+			msg="continue",
 			choices=["yes", "no"]
-		)) == "yes"
+		) == "yes"
 		
 		if not cont: return False
 		pc = self.reg_read(UC_ARM_REG_PC)
@@ -286,12 +283,10 @@ class Software(Uc):
 		for i in mnemonics:
 			self.UI.log("ERROR", f"ASM: {i.mnemonic}\t{i.op_str}")
 		
-		# TODO: via ui class!!!!
-		cont = prompt(Choice(
-			"continue",
-			message="continue?",
+		cont = self.UI.prompt_choice(
+			msg="continue",
 			choices=["yes", "no"]
-		)) == "yes"
+		) == "yes"
 		if not cont: return False
 		self.reg_write(UC_ARM_REG_PC, pc + 2)
 		return True
@@ -309,7 +304,7 @@ class Software(Uc):
 	def code_hook(self: "Software", address, size, user_data):
 		# sync
 		if self.single_step.value:
-			#print(self.regs, end="") TODO
+			self.UI.log_regs(self.regs)
 			while not self.next_step.value and self.single_step.value: pass
 			self.next_step.value = False
 		self.step.value += 1
