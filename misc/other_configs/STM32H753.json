@@ -1,0 +1,18 @@
+{
+	"config": {
+		"flash": [
+			"bank_0"
+		],
+		"var": true,
+		"periph": true,
+		"core": true,
+		"load": 134217728,
+		"accel": 2240000
+	},
+	"breakpoints": [
+		"GPIO_toggle",
+		"SysTick_Handler"
+	],
+	"actions": [],
+	"hardware": "STM32H753.json"
+}

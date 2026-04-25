@@ -209,6 +209,7 @@ class Software(Uc):
 	
 	def IRQ_entry(self, IRQn: int) -> None:
 		# preserve non volatile registers
+		# TODO: _do_reg_read_batch
 		address = self.reg_read(UC_ARM_REG_PC)
 		frame = {
 			"R0":	self.reg_read(UC_ARM_REG_R0),
@@ -243,6 +244,7 @@ class Software(Uc):
 		
 		self.IRQ_call_stack.pop()
 		frame = self.IRQ_stack.pop()
+		# TODO: _do_reg_write_batch
 		self.reg_write(UC_ARM_REG_R0,	frame["R0"])
 		self.reg_write(UC_ARM_REG_R1,	frame["R1"])
 		self.reg_write(UC_ARM_REG_R2,	frame["R2"])
